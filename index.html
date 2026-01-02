@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conciliação Fiscal | Download da Planilha</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+
+</head>
+<body>
+
+  <header>
+    <h1>Planilha de Conciliação Fiscal</h1>
+    <p>
+      Ferramenta desenvolvida para auxiliar no <strong>fechamento fiscal</strong>, conciliando
+      notas fiscais lançadas no sistema com as notas emitidas na <strong>SEFAZ</strong>.
+      Sempre com fórmulas atualizadas.
+    </p>
+
+    <div class="download-area">
+      <!-- Substitua o href pelo link real da planilha -->
+      <a href="relatorio-fiscal.xlsx" class="download-btn" download>
+        <span class="icon">📊⬇️</span>
+        <span>Baixar Planilha (Excel)</span>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>O que esta planilha faz?</h2>
+      <p>
+        A planilha realiza a conciliação semiautomática entre as notas fiscais lançadas no ERP
+        e as notas emitidas contra o CNPJ consultadas na SEFAZ, facilitando a identificação de:
+        notas faltantes, devoluções, notas para rejeitar e possíveis erros de lançamento.
+      </p>
+    </section>
+
+    <section>
+      <h2>Fórmula disponível</h2>
+      <p>
+        Abaixo está a fórmula principal utilizada no projeto, Você pode copiar e colar diretamente no Excel e desenvolver sua própria planilha.
+      </p>
+
+      <div class="formula-box">
+        <button class="copy-btn" onclick="copyFormula(this)">Copiar</button>
+
+        <pre><code>=SE([@NF] = "";
+            "";
+
+            SE([@TIPO] = "ENTRADA";
+                PROCV([@NF]; TABELA_ENTRADAS[[#Tudo]; [NF]:[RELAÇÃO]]; 10; FALSO);
+
+                SEERRO(
+                    SE(
+                        PROCV([@NF]; tabela_compras[NF]; 1; FALSO);
+                        "RECEBIDA"
+                    );
+
+                    SE([@SITUACAO] = "CANCELADA";
+                        "CANCELADA";
+
+                        SE([@JUSTIFICATIVA] <> "NÃO PRECISA";
+                            [@JUSTIFICATIVA];
+
+                            SE([@CFOP] = 5926;
+                                "DESAGREGAÇÃO";
+
+                                SEERRO(
+                                    SE(
+                                        PROCV([@VALOR]; TABELA_ENTRADAS[VALOR]; 1; FALSO);
+                                        "DEVOLUÇÃO"
+                                    );
+
+                                    SE([@CFOP] = 5927;
+                                        "DESCARTE";
+
+                                        SE([@UF] <> "AM";
+                                            "EM TRANSPORTE";
+                                            "NÃO LANÇADA"
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )</code></pre>
+</div>
+
+
+    </section>
+  </main>
+
+  <footer>
+    © 2025 • Conciliação Fiscal • Desenvolvido para apoio ao fechamento fiscal • André Júnior
+  </footer>
+
+  <script>
+    function copyFormula(button) {
+      const formula = button.parentElement.innerText.replace('Copiar', '').trim();
+      navigator.clipboard.writeText(formula);
+      button.innerText = 'Copiado!';
+      setTimeout(() => button.innerText = 'Copiar', 1500);
+    }
+  </script>
+
+</body>
+</html>
