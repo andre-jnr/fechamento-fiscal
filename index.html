@@ -70,47 +70,48 @@
         <button class="copy-btn" onclick="copyFormula(this)">Copiar</button>
 
         <pre><code>=SE([@NF] = "";
-            "";
+    "";
 
-            SE([@TIPO] = "ENTRADA";
-                PROCV([@NF]; TABELA_ENTRADAS[[#Tudo]; [NF]:[RELAÇÃO]]; 10; FALSO);
+    SE([@TIPO] = "ENTRADA";
+        PROCV([@NF]; TABELA_ENTRADAS[[#Tudo]; [NF]:[RELAÇÃO]]; 10; FALSO);
 
-                SEERRO(
-                    SE(
-                        PROCV([@NF]; tabela_compras[NF]; 1; FALSO);
-                        "RECEBIDA"
-                    );
+        SEERRO(
+            SE(
+                PROCX(1;(tabela_compras[NF]=[@NF])*(tabela_compras[Vlr. Nota]=[@VALOR]);tabela_compras[NF]);
+                "RECEBIDA"
+            );
 
-                    SE([@SITUACAO] = "CANCELADA";
-                        "CANCELADA";
+            SE([@SITUACAO] = "CANCELADA";
+                "CANCELADA";
 
-                        SE([@JUSTIFICATIVA] <> "NÃO PRECISA";
-                            [@JUSTIFICATIVA];
+                 SE([@JUSTIFICATIVA] <> "NÃO PRECISA";
+                    [@JUSTIFICATIVA];
 
-                            SE([@CFOP] = 5926;
-                                "DESAGREGAÇÃO";
+                    SE([@CFOP] = 5926;
+                        "DESAGREGAÇÃO";
 
-                                SEERRO(
-                                    SE(
-                                        PROCV([@VALOR]; TABELA_ENTRADAS[VALOR]; 1; FALSO);
-                                        "DEVOLUÇÃO"
-                                    );
+                        SEERRO(
+                            SE(
+                                PROCV([@VALOR]; TABELA_ENTRADAS[VALOR]; 1; FALSO);
+                                "DEVOLUÇÃO"
+                            );
 
-                                    SE([@CFOP] = 5927;
-                                        "DESCARTE";
+                            SE([@CFOP] = 5927;
+                                "DESCARTE";
 
-                                        SE([@UF] <> "AM";
-                                            "EM TRANSPORTE";
-                                            "NÃO LANÇADA"
-                                        )
-                                    )
+                                SE([@UF] <> "AM";
+                                    "EM TRANSPORTE";
+
+                                         "NÃO LANÇADA"
                                 )
                             )
                         )
                     )
                 )
             )
-        )</code></pre>
+        )
+    )
+)</code></pre>
 </div>
 
 
