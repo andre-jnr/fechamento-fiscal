@@ -73,6 +73,24 @@ display: flex;
 align-items: center;
 }
 
+.store-downloads {
+  margin-top: 2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  max-width: 900px;
+  margin-inline: auto;
+}
+
+/* Ajuste fino para botões das lojas */
+.store-btn {
+  justify-content: center;
+  padding: 1.2rem;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+
 main {
 max-width: 1100px;
 margin: 0 auto;
@@ -84,7 +102,7 @@ margin-top: 4rem;
 animation: fadeUp 0.8s ease;
 }
 
-section h2 {
+h2 {
 font-size: 1.8rem;
 margin-bottom: 1rem;
 color: var(--green-main);
