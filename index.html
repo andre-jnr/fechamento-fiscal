@@ -84,25 +84,29 @@
             SE([@SITUACAO] = "CANCELADA";
                 "CANCELADA";
 
-                 SE([@JUSTIFICATIVA] <> "NÃO PRECISA";
-                    [@JUSTIFICATIVA];
+                SE(SEFAZ!V2 = "S";
+                   "REJEITADA";
 
-                    SE([@CFOP] = 5926;
-                        "DESAGREGAÇÃO";
+                     SE([@JUSTIFICATIVA] <> "NÃO PRECISA";
+                        [@JUSTIFICATIVA];
 
-                        SEERRO(
-                            SE(
-                                PROCV([@VALOR]; TABELA_ENTRADAS[VALOR]; 1; FALSO);
-                                "DEVOLUÇÃO"
-                            );
+                        SE([@CFOP] = 5926;
+                            "DESAGREGAÇÃO";
 
-                            SE([@CFOP] = 5927;
-                                "DESCARTE";
+                            SEERRO(
+                                SE(
+                                    PROCV([@VALOR]; TABELA_ENTRADAS[VALOR]; 1; FALSO);
+                                    "DEVOLUÇÃO"
+                                );
 
-                                SE([@UF] <> "AM";
-                                    "EM TRANSPORTE";
+                                SE([@CFOP] = 5927;
+                                    "DESCARTE";
 
-                                         "NÃO LANÇADA"
+                                    SE([@UF] <> "AM";
+                                        "EM TRANSPORTE";
+
+                                             "NÃO LANÇADA"
+                                    )
                                 )
                             )
                         )
