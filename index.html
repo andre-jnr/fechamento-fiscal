@@ -10,6 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
 </head>
 <body>
@@ -69,7 +71,7 @@
       <div class="formula-box">
         <button class="copy-btn" onclick="copyFormula(this)">Copiar</button>
 
-        <pre><code>=SE([@NF] = "";
+        <pre><code class="language-vbnet">=SE([@NF] = "";
     "";
 
     SE([@TIPO] = "ENTRADA";
@@ -127,6 +129,8 @@
   </footer>
 
   <script>
+    hljs.highlightAll();
+
     function copyFormula(button) {
       const formula = button.parentElement.innerText.replace('Copiar', '').trim();
       navigator.clipboard.writeText(formula);
