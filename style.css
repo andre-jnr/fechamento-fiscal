@@ -21,6 +21,28 @@ color: var(--dark);
 line-height: 1.6;
 }
 
+.admin-btn {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.7rem;
+  text-decoration: none;
+  color: var(--gray);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(6px);
+  border-radius: 20px;
+  border: 1px solid rgba(0,0,0,0.05);
+  transition: all 0.2s ease;
+  z-index: 999;
+}
+
+.admin-btn:hover {
+  color: var(--green-main);
+  background: rgba(255,255,255,0.9);
+  transform: translateY(-1px);
+}
+
 header {
 padding: 4rem 1.5rem 3rem;
 text-align: center;
