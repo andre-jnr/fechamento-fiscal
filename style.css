@@ -67,6 +67,8 @@ font-size: 1.05rem;
 margin-top: 2.5rem;
 display: flex;
 justify-content: center;
+flex-wrap: wrap;
+gap: 1rem;
 }
 
 .download-btn {

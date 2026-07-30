@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Testes — Motor de Conciliação Fiscal</title>
+    <style>
+      body { font-family: 'Segoe UI', sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+      h1 { color: #1d6f42; }
+      .case { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.4rem; font-size: 0.9rem; }
+      .pass { background: #e6f4ec; color: #1d6f42; }
+      .fail { background: #fdecec; color: #b42318; }
+      #summary { font-weight: 700; margin: 1rem 0; font-size: 1.1rem; }
+    </style>
+    <script src="../js/conciliacao-engine.js"></script>
+  </head>
+  <body>
+    <h1>Testes — Motor de Conciliação Fiscal</h1>
+    <div id="summary">Executando...</div>
+    <div id="results"></div>
+
+    <script>
+      const Engine = window.ConciliacaoEngine
+      const results = []
+
+      function assertEqual(name, actual, expected) {
+        const pass = actual === expected
+        results.push({ name, pass, actual, expected })
+      }
+
+      function baseRow(overrides) {
+        return Object.assign(
+          {
+            uf: 'AM',
+            nf: '123',
+            serie: '1',
+            emissao: Engine.stripTime(new Date()),
+            cnpjEmissor: '05402904001562',
+            cnpjEmissorFormatado: '05.402.904/0001-62',
+            fornecedor: 'FORNECEDOR TESTE',
+            cnpjDestinatario: '19234190000300',
+            cfop: 5102,
+            situacao: 'AUTORIZADA',
+            tipo: 'SAÍDA',
+            valor: 100,
+            rejeitada: 'N',
+          },
+          overrides || {}
+        )
+      }
+
+      function diasAtras(n) {
+        const d = new Date()
+        d.setDate(d.getDate() - n)
+        return Engine.stripTime(d)
+      }
+
+      // --- Cenário 1: NF encontrada no sistema -> RECEBIDA ---
+      ;(function () {
+        const row = baseRow({ nf: '456', valor: 250, emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [{ nf: '456', valor: 250 }])
+        assertEqual('Cenário 1 — NF encontrada no sistema', Engine.conciliarNota(row, indices), 'RECEBIDA')
+      })()
+
+      // --- Cenário 2: não encontrada, emitida há 1 dia -> FALTA CHEGAR ---
+      ;(function () {
+        const row = baseRow({ nf: '789', valor: 300, emissao: diasAtras(1) })
+        const indices = Engine.buildIndices([row], [])
+        assertEqual('Cenário 2 — emitida há 1 dia, não encontrada', Engine.conciliarNota(row, indices), 'FALTA CHEGAR')
+      })()
+
+      // --- Cenário 3: não encontrada, emitida há mais de 2 dias -> NÃO LANÇADA ---
+      ;(function () {
+        const row = baseRow({ nf: '790', valor: 300, emissao: diasAtras(5) })
+        const indices = Engine.buildIndices([row], [])
+        assertEqual('Cenário 3 — emitida há 5 dias, não encontrada', Engine.conciliarNota(row, indices), 'NÃO LANÇADA')
+      })()
+
+      // --- Cenário 4: Situação CANCELADA ---
+      ;(function () {
+        const row = baseRow({ nf: '791', situacao: 'CANCELADA', emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [])
+        assertEqual('Cenário 4 — situação CANCELADA', Engine.conciliarNota(row, indices), 'CANCELADA')
+      })()
+
+      // --- Cenário 5: CFOP 5926 -> DESAGREGAÇÃO ---
+      ;(function () {
+        const row = baseRow({ nf: '792', cfop: 5926, emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [])
+        assertEqual('Cenário 5 — CFOP 5926', Engine.conciliarNota(row, indices), 'DESAGREGAÇÃO')
+      })()
+
+      // --- Cenário 6: CFOP 5927 -> DESCARTE ---
+      ;(function () {
+        const row = baseRow({ nf: '793', cfop: 5927, emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [])
+        assertEqual('Cenário 6 — CFOP 5927', Engine.conciliarNota(row, indices), 'DESCARTE')
+      })()
+
+      // --- Cenário 7: UF diferente de AM -> EM TRANSPORTE ---
+      ;(function () {
+        const row = baseRow({ nf: '794', uf: 'SP', emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [])
+        assertEqual('Cenário 7 — UF diferente de AM', Engine.conciliarNota(row, indices), 'EM TRANSPORTE')
+      })()
+
+      // --- Cenário 8: NF+valor com diferença de R$0,01 -> RECEBIDA ---
+      ;(function () {
+        const row = baseRow({ nf: '795', valor: 100.0, emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [{ nf: '795', valor: 100.01 }])
+        assertEqual('Cenário 8 — diferença de R$0,01', Engine.conciliarNota(row, indices), 'RECEBIDA')
+      })()
+
+      // --- Cenário 9: diferença superior a R$0,02 -> não considera match ---
+      ;(function () {
+        const row = baseRow({ nf: '796', valor: 100.0, emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [{ nf: '796', valor: 100.05 }])
+        assertEqual('Cenário 9 — diferença acima de R$0,02 não casa', Engine.conciliarNota(row, indices), 'NÃO LANÇADA')
+      })()
+
+      // --- Cenário 10: Justificativa = FALTA CHEGAR ---
+      ;(function () {
+        const row = baseRow({ nf: '797', emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [])
+        assertEqual(
+          'Cenário 10 — justificativa FALTA CHEGAR',
+          Engine.conciliarNota(row, indices, 'FALTA CHEGAR'),
+          'FALTA CHEGAR'
+        )
+      })()
+
+      // --- Cenário 11: Justificativa = REJEITADA ---
+      ;(function () {
+        const row = baseRow({ nf: '798', emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [])
+        assertEqual(
+          'Cenário 11 — justificativa REJEITADA',
+          Engine.conciliarNota(row, indices, 'REJEITADA'),
+          'REJEITADA'
+        )
+      })()
+
+      // --- Cenário 12: Justificativa = NÃO PRECISA não altera status automático ---
+      ;(function () {
+        const row = baseRow({ nf: '799', emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [])
+        const automatico = Engine.conciliarNota(row, indices, 'NÃO PRECISA')
+        assertEqual('Cenário 12 — justificativa NÃO PRECISA não altera', automatico, 'NÃO LANÇADA')
+      })()
+
+      // --- Cenário 13: unidade PONTA NEGRA ---
+      assertEqual('Cenário 13 — CNPJ 19234190000300 = PONTA NEGRA', Engine.unidadeNome('19234190000300'), 'UNIDADE: PONTA NEGRA')
+
+      // --- Cenário 14: unidade PARQUE DEZ ---
+      assertEqual('Cenário 14 — CNPJ 19234190000130 = PARQUE DEZ', Engine.unidadeNome('19234190000130'), 'UNIDADE: PARQUE DEZ')
+
+      // --- Testes adicionais de normalização ---
+      assertEqual('CNPJ formatado', Engine.formatCNPJ('19234190000300'), '19.234.190/0003-00')
+      assertEqual('NF com zeros à esquerda', Engine.normalizeNF('000123'), Engine.normalizeNF('123'))
+      assertEqual('Valor pt-BR com milhar', Engine.normalizeValor('1.963,68'), 1963.68)
+      assertEqual('Valor com R$', Engine.normalizeValor('R$ 100,00'), 100)
+      assertEqual('NF vazia -> status vazio', Engine.conciliarNota(baseRow({ nf: '' }), Engine.buildIndices([], [])), '')
+
+      // Regra 2: TIPO=ENTRADA classificado via sub-regra (não cai nas demais regras)
+      ;(function () {
+        const entrada = baseRow({ nf: '900', tipo: 'ENTRADA', cfop: 1926, emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([entrada], [])
+        assertEqual('TIPO=ENTRADA + CFOP 1926 -> DESAGREGAÇÃO', Engine.conciliarNota(entrada, indices), 'DESAGREGAÇÃO')
+      })()
+      ;(function () {
+        const saida = baseRow({ nf: '901', tipo: 'SAÍDA', valor: 500, emissao: diasAtras(10) })
+        const entrada = baseRow({ nf: '902', tipo: 'ENTRADA', valor: 500, emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([saida, entrada], [])
+        assertEqual('TIPO=ENTRADA com valor batendo em SAÍDA -> DEVOLUÇÃO', Engine.conciliarNota(entrada, indices), 'DEVOLUÇÃO')
+      })()
+
+      // Regra 5: indicador SEFAZ de rejeição
+      ;(function () {
+        const row = baseRow({ nf: '903', rejeitada: 'S', emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [])
+        assertEqual('REJEITADA = S -> Status REJEITADA', Engine.conciliarNota(row, indices), 'REJEITADA')
+      })()
+
+      // Regra 8: DEVOLUÇÃO por valor exato entre linhas ENTRADA do próprio SEFAZ
+      ;(function () {
+        const entrada = baseRow({ nf: '904', tipo: 'ENTRADA', valor: 777.5, situacao: 'CANCELADA', emissao: diasAtras(10) })
+        const saida = baseRow({ nf: '905', tipo: 'SAÍDA', valor: 777.5, emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([entrada, saida], [])
+        assertEqual('Valor de SAÍDA casa com DEVOLUÇÃO (regra 8)', Engine.conciliarNota(saida, indices), 'DEVOLUÇÃO')
+      })()
+
+      // Render
+      const passCount = results.filter((r) => r.pass).length
+      document.getElementById('summary').textContent = `${passCount}/${results.length} testes passaram`
+      document.getElementById('summary').style.color = passCount === results.length ? '#1d6f42' : '#b42318'
+
+      const container = document.getElementById('results')
+      for (const r of results) {
+        const div = document.createElement('div')
+        div.className = 'case ' + (r.pass ? 'pass' : 'fail')
+        div.textContent = r.pass
+          ? `✓ ${r.name}`
+          : `✗ ${r.name} — esperado "${r.expected}", obtido "${r.actual}"`
+        container.appendChild(div)
+      }
+    </script>
+  </body>
+</html>
