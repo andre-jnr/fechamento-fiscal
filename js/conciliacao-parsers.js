@@ -197,7 +197,7 @@
       }
     })
 
-    return { rows, fileName: file.name }
+    return { rows, fileName: file.name, rawMatrix: matrix, colIndex }
   }
 
   // -----------------------------------------------------------------------
@@ -277,7 +277,7 @@
       }
     })
 
-    return { rows, fileName: file.name }
+    return { rows, fileName: file.name, rawMatrix: matrix }
   }
 
   global.ConciliacaoParsers = {

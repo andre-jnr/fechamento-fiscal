@@ -16,6 +16,7 @@
     <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   </head>
   <body class="conc-body">
     <div class="conc-toasts" id="toasts"></div>
@@ -38,6 +39,7 @@
         </div>
         <div class="conc-header-actions">
           <a href="index.html" class="conc-btn">← Início</a>
+          <button class="conc-btn" id="btnRelatorioFormatado" disabled>Gerar Relatório Formatado</button>
           <button class="conc-btn" id="btnExportAll" disabled>Exportar Excel</button>
           <button class="conc-btn" id="btnExportFiltered" disabled>Exportar Filtrados</button>
         </div>
@@ -173,6 +175,7 @@
     <script src="js/conciliacao-engine.js"></script>
     <script src="js/conciliacao-parsers.js"></script>
     <script src="js/conciliacao-storage.js"></script>
+    <script src="js/conciliacao-relatorio.js"></script>
     <script src="js/conciliacao-app.js"></script>
   </body>
 </html>

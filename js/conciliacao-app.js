@@ -176,6 +176,7 @@
 
       el('btnExportAll').disabled = false
       el('btnExportFiltered').disabled = false
+      el('btnRelatorioFormatado').disabled = false
       el('emptyState').style.display = 'none'
       showToast(`Conciliação concluída — ${results.length} notas processadas`, 'success')
     } catch (err) {
@@ -537,6 +538,50 @@
   }
 
   // -----------------------------------------------------------------------
+  // Relatório formatado (planilha original) — cola os dados brutos
+  // importados nas abas SEFAZ/SISTEMA do modelo relatorio-fiscal.xlsx, que
+  // já contém as fórmulas/dashboard prontos. Substitui o passo manual de
+  // copiar e colar que era feito direto no Excel.
+  // -----------------------------------------------------------------------
+
+  const RELATORIO_TEMPLATE_URL = 'relatorio-fiscal.xlsx'
+  const RELATORIO_LIMITE_LINHAS = 1087 // tamanho da tabela RELATORIO no modelo
+
+  async function gerarRelatorioFormatado() {
+    if (!state.sefaz || !state.sistema) return
+    const btn = el('btnRelatorioFormatado')
+    btn.disabled = true
+    try {
+      if (state.sefaz.rows.length > RELATORIO_LIMITE_LINHAS) {
+        showToast(
+          `Atenção: o modelo calcula automaticamente até ${RELATORIO_LIMITE_LINHAS.toLocaleString('pt-BR')} notas por planilha; as notas excedentes ficarão só na aba SEFAZ, sem cálculo automático.`,
+          'error'
+        )
+      }
+
+      const blob = await window.ConciliacaoRelatorio.gerar(RELATORIO_TEMPLATE_URL, state.sefaz, state.sistema)
+
+      const { mes, ano } = Engine.detectMesAno(state.sefaz.rows)
+      const filename = `relatorio-fiscal-${mes.toLowerCase()}-${ano}.xlsx`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+
+      showToast('Relatório formatado gerado com sucesso.', 'success')
+    } catch (err) {
+      console.error(err)
+      showToast('Não foi possível gerar o relatório formatado. Tente novamente.', 'error')
+    } finally {
+      btn.disabled = false
+    }
+  }
+
+  // -----------------------------------------------------------------------
   // Bootstrap
   // -----------------------------------------------------------------------
 
@@ -557,6 +602,7 @@
     el('btnConciliar').addEventListener('click', runConciliacao)
     el('btnExportAll').addEventListener('click', () => exportRows(state.reconciled, 'conciliacao-fiscal.xlsx'))
     el('btnExportFiltered').addEventListener('click', () => exportRows(getFilteredRows(), 'conciliacao-fiscal-filtrado.xlsx'))
+    el('btnRelatorioFormatado').addEventListener('click', gerarRelatorioFormatado)
 
     ;[
       'filterStatus', 'filterUf', 'filterFornecedor', 'filterCnpj', 'filterTipo',
