@@ -1,115 +1,107 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-br">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Conciliação Fiscal | Download da Planilha</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conciliação Fiscal | Download da Planilha</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <a href="controle-nf.xlsx" class="admin-btn">Planilha Admin</a>
 
-</head>
-<body>
-  <a href="controle-nf.xlsx" class="admin-btn">Planilha Admin</a>
-
-  <header>
-    <h1>Planilha de Conciliação Fiscal</h1>
-    <p>
-      Ferramenta desenvolvida para auxiliar no <strong>fechamento fiscal</strong>, conciliando
-      notas fiscais lançadas no sistema com as notas emitidas na <strong>SEFAZ</strong>.
-      Sempre com fórmulas atualizadas.
-    </p>
-
-    <div class="download-area">
-      <a href="relatorio-fiscal.xlsx" class="download-btn" download>
-        <span class="icon">📊⬇️</span>
-        <span>Baixar Planilha (Excel)</span>
-      </a>
-    </div>
-
-  </header>
-
-  <main>
-
-    <h2>Baixe a planilha da sua loja</h2>
-
-    <div class="store-downloads">
-      <a href="files/relatorio-fiscal-pq10.xlsx" class="download-btn store-btn" download>
-        <span class="icon">🏘️</span>
-        <span>Parque Dez</span>
-      </a>
-
-      <a href="files/relatorio-fiscal-pn.xlsx" class="download-btn store-btn" download>
-        <span class="icon">🌆</span>
-        <span>Ponta Negra</span>
-      </a>
-
-      <a href="files/relatorio-fiscal-ms.xlsx" class="download-btn store-btn" download>
-        <span class="icon">☀️</span>
-        <span>Morada do Sol</span>
-      </a>
-    </div>
-    <section>
-      <h2>O que esta planilha faz?</h2>
+    <header>
+      <h1>Planilha de Conciliação Fiscal</h1>
       <p>
-        A planilha realiza a conciliação semiautomática entre as notas fiscais lançadas no ERP
-        e as notas emitidas contra o CNPJ consultadas na SEFAZ, facilitando a identificação de:
-        notas faltantes, devoluções, notas para rejeitar e possíveis erros de lançamento.
-      </p>
-    </section>
-
-    <section>
-      <h2>Fórmula disponível</h2>
-      <p>
-        Abaixo está a fórmula principal utilizada no projeto, Você pode copiar e colar diretamente no Excel e desenvolver sua própria planilha.
+        Ferramenta desenvolvida para auxiliar no
+        <strong>fechamento fiscal</strong>, conciliando notas fiscais lançadas
+        no sistema com as notas emitidas na <strong>SEFAZ</strong>. Sempre com
+        fórmulas atualizadas.
       </p>
 
-      <div class="formula-box">
-        <button class="copy-btn" onclick="copyFormula(this)">Copiar</button>
+      <div class="download-area">
+        <a href="relatorio-fiscal.xlsx" class="download-btn" download>
+          <span class="icon">📊⬇️</span>
+          <span>Baixar Planilha (Excel)</span>
+        </a>
+      </div>
+    </header>
 
-        <pre><code class="language-vbnet">=SE([@NF] = "";
+    <main>
+      <section>
+        <h2>O que esta planilha faz?</h2>
+        <p>
+          A planilha realiza a conciliação semiautomática entre as notas fiscais
+          lançadas no ERP e as notas emitidas contra o CNPJ consultadas na
+          SEFAZ, facilitando a identificação de: notas faltantes, devoluções,
+          notas para rejeitar e possíveis erros de lançamento.
+        </p>
+      </section>
+
+      <section>
+        <h2>Fórmula disponível</h2>
+        <p>
+          Abaixo está a fórmula principal utilizada no projeto, Você pode copiar
+          e colar diretamente no Excel e desenvolver sua própria planilha.
+        </p>
+
+        <div class="formula-box">
+          <button class="copy-btn" onclick="copyFormula(this)">Copiar</button>
+
+          <pre><code class="language-vbnet">=SE([@NF] = "";
     "";
 
-    SE([@TIPO] = "ENTRADA";
-        PROCV([@NF]; TABELA_ENTRADAS[[#Tudo]; [NF]:[RELAÇÃO]]; 10; FALSO);
+=SE([@NF] = "";
+"";
 
-        SEERRO(
-            SE(
-                PROCX(1;(tabela_compras[NF]=[@NF])*(tabela_compras[Vlr. Nota]=[@VALOR]);tabela_compras[NF]);
-                "RECEBIDA"
-            );
+SE([@TIPO] = "ENTRADA";
+PROCV([@NF]; TABELA_ENTRADAS[[#Tudo]; [NF]:[RELAÇÃO]]; 10; FALSO);
 
-            SE([@SITUACAO] = "CANCELADA";
-                "CANCELADA";
+SEERRO(
+    SE(
+        PROCX(1;(tabela_compras[NF]=[@NF])*(ABS(tabela_compras[Vlr. Nota]-[@VALOR])<=0,02);tabela_compras[NF]);
+        "RECEBIDA"
+    );
 
-                SE(SEFAZ!V2 = "S";
-                   "REJEITADA";
+    SE([@SITUACAO] = "CANCELADA";
+        "CANCELADA";
 
-                     SE([@JUSTIFICATIVA] <> "NÃO PRECISA";
-                        [@JUSTIFICATIVA];
+        SE(SEFAZ!V2 = "S";
+            "REJEITADA";
 
-                        SE([@CFOP] = 5926;
-                            "DESAGREGAÇÃO";
+            SE([@JUSTIFICATIVA] <> "NÃO PRECISA";
+                [@JUSTIFICATIVA];
 
-                            SEERRO(
-                                SE(
-                                    PROCV([@VALOR]; TABELA_ENTRADAS[VALOR]; 1; FALSO);
-                                    "DEVOLUÇÃO"
-                                );
+                SE([@CFOP] = 5926;
+                    "DESAGREGAÇÃO";
 
-                                SE([@CFOP] = 5927;
-                                    "DESCARTE";
+                    SEERRO(
+                        SE(
+                            PROCV([@VALOR]; TABELA_ENTRADAS[VALOR]; 1; FALSO);
+                            "DEVOLUÇÃO"
+                        );
 
-                                    SE([@UF] <> "AM";
-                                        "EM TRANSPORTE";
+                        SE([@CFOP] = 5927;
+                            "DESCARTE";
 
-                                             "NÃO LANÇADA"
-                                    )
+                            SE([@UF] <> "AM";
+                                "EM TRANSPORTE";
+
+                                SE([@EMISSAO] >= HOJE()-2;
+                                    "FALTA CHEGAR";
+                                    "NÃO LANÇADA"
                                 )
                             )
                         )
@@ -118,27 +110,31 @@
             )
         )
     )
+)
+
+)
+)
 )</code></pre>
-</div>
+        </div>
+      </section>
+    </main>
 
+    <footer>
+      © 2025 • Conciliação Fiscal • Desenvolvido para apoio ao fechamento fiscal
+      • André Júnior
+    </footer>
 
-    </section>
-  </main>
+    <script>
+      hljs.highlightAll()
 
-  <footer>
-    © 2025 • Conciliação Fiscal • Desenvolvido para apoio ao fechamento fiscal • André Júnior
-  </footer>
-
-  <script>
-    hljs.highlightAll();
-
-    function copyFormula(button) {
-      const formula = button.parentElement.innerText.replace('Copiar', '').trim();
-      navigator.clipboard.writeText(formula);
-      button.innerText = 'Copiado!';
-      setTimeout(() => button.innerText = 'Copiar', 1500);
-    }
-  </script>
-
-</body>
+      function copyFormula(button) {
+        const formula = button.parentElement.innerText
+          .replace('Copiar', '')
+          .trim()
+        navigator.clipboard.writeText(formula)
+        button.innerText = 'Copiado!'
+        setTimeout(() => (button.innerText = 'Copiar'), 1500)
+      }
+    </script>
+  </body>
 </html>
