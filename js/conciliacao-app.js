@@ -545,21 +545,26 @@
   // -----------------------------------------------------------------------
 
   const RELATORIO_TEMPLATE_URL = 'relatorio-fiscal.xlsx'
-  const RELATORIO_LIMITE_LINHAS = 1087 // tamanho da tabela RELATORIO no modelo
 
   async function gerarRelatorioFormatado() {
     if (!state.sefaz || !state.sistema) return
     const btn = el('btnRelatorioFormatado')
     btn.disabled = true
     try {
-      if (state.sefaz.rows.length > RELATORIO_LIMITE_LINHAS) {
+      const limite = window.ConciliacaoRelatorio.RELATORIO_LIMITE_LINHAS
+      if (state.sefaz.rows.length > limite) {
         showToast(
-          `Atenção: o modelo calcula automaticamente até ${RELATORIO_LIMITE_LINHAS.toLocaleString('pt-BR')} notas por planilha; as notas excedentes ficarão só na aba SEFAZ, sem cálculo automático.`,
+          `Atenção: o modelo calcula automaticamente até ${limite.toLocaleString('pt-BR')} notas por planilha; as notas excedentes ficarão só na aba SEFAZ, sem cálculo automático.`,
           'error'
         )
       }
 
-      const blob = await window.ConciliacaoRelatorio.gerar(RELATORIO_TEMPLATE_URL, state.sefaz, state.sistema)
+      const blob = await window.ConciliacaoRelatorio.gerar(
+        RELATORIO_TEMPLATE_URL,
+        state.sefaz,
+        state.sistema,
+        state.reconciled
+      )
 
       const { mes, ano } = Engine.detectMesAno(state.sefaz.rows)
       const filename = `relatorio-fiscal-${mes.toLowerCase()}-${ano}.xlsx`

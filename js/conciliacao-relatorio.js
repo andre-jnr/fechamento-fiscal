@@ -16,6 +16,14 @@
 
   class RelatorioFormatadoError extends Error {}
 
+  // Estrutura fixa da aba RELATÓRIO no modelo: cabeçalho na linha 18, dados
+  // a partir da 19 (RELATÓRIO!linha 19+i = SEFAZ!linha 2+i), colunas M/N =
+  // Justificativa/Observação. A tabela RELATORIO vai até a linha 1105.
+  const RELATORIO_HEADER_ROW = 18
+  const RELATORIO_COL_JUSTIFICATIVA = 'M'
+  const RELATORIO_COL_OBSERVACAO = 'N'
+  const RELATORIO_LIMITE_LINHAS = 1087 // tamanho da tabela RELATORIO no modelo (linhas 19-1105)
+
   // XMLSerializer às vezes já emite a própria declaração <?xml ...?> (a
   // depender do navegador); remove antes de prependar a nossa para não
   // duplicar (o que o Excel/lxml rejeita como XML inválido).
@@ -167,6 +175,102 @@
   }
 
   // -----------------------------------------------------------------------
+  // Edição pontual de células (usada na aba RELATÓRIO, que é cheia de
+  // fórmulas — só as colunas Justificativa/Observação são alteradas, célula
+  // a célula, sem tocar em mais nada da linha)
+  // -----------------------------------------------------------------------
+
+  function colToIndex(letters) {
+    let n = 0
+    for (const ch of letters) n = n * 26 + (ch.charCodeAt(0) - 64)
+    return n - 1
+  }
+
+  function parseCellRef(ref) {
+    const m = ref.match(/^([A-Z]+)(\d+)$/)
+    if (!m) throw new RelatorioFormatadoError(`Referência de célula inválida: ${ref}`)
+    return { col: m[1], colIdx: colToIndex(m[1]), row: parseInt(m[2], 10) }
+  }
+
+  function getOrCreateRow(doc, sheetData, rowNum) {
+    const rows = Array.from(sheetData.children).filter((el) => el.tagName === 'row')
+    let before = null
+    for (const rowEl of rows) {
+      const r = parseInt(rowEl.getAttribute('r'), 10)
+      if (r === rowNum) return rowEl
+      if (r > rowNum) {
+        before = rowEl
+        break
+      }
+    }
+    const newRow = doc.createElementNS(NS_MAIN, 'row')
+    newRow.setAttribute('r', String(rowNum))
+    if (before) sheetData.insertBefore(newRow, before)
+    else sheetData.appendChild(newRow)
+    return newRow
+  }
+
+  function setCellInlineText(doc, rowEl, cellRef, text) {
+    const { colIdx } = parseCellRef(cellRef)
+    const cells = Array.from(rowEl.children).filter((el) => el.tagName === 'c')
+    let cEl = null
+    let before = null
+    for (const c of cells) {
+      const ref = c.getAttribute('r')
+      if (ref === cellRef) {
+        cEl = c
+        break
+      }
+      if (colToIndex(ref.match(/^[A-Z]+/)[0]) > colIdx) {
+        before = c
+        break
+      }
+    }
+    if (!cEl) {
+      cEl = doc.createElementNS(NS_MAIN, 'c')
+      cEl.setAttribute('r', cellRef)
+      if (before) rowEl.insertBefore(cEl, before)
+      else rowEl.appendChild(cEl)
+    }
+    // preserva o atributo de estilo (s) — só troca o tipo/conteúdo
+    while (cEl.firstChild) cEl.removeChild(cEl.firstChild)
+    cEl.removeAttribute('t')
+    if (text === '' || text == null) return
+    cEl.setAttribute('t', 'inlineStr')
+    const isEl = doc.createElementNS(NS_MAIN, 'is')
+    const tEl = doc.createElementNS(NS_MAIN, 't')
+    tEl.setAttribute('xml:space', 'preserve')
+    tEl.textContent = String(text)
+    isEl.appendChild(tEl)
+    cEl.appendChild(isEl)
+  }
+
+  async function writeJustificativasObservacoes(zip, relatorioPath, reconciled) {
+    const file = zip.file(relatorioPath)
+    if (!file) throw new RelatorioFormatadoError(`Parte "${relatorioPath}" não encontrada no modelo`)
+    const xmlText = await file.async('string')
+
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(xmlText, 'application/xml')
+    if (doc.getElementsByTagName('parsererror').length) {
+      throw new RelatorioFormatadoError(`Não foi possível interpretar o XML de "${relatorioPath}"`)
+    }
+
+    const sheetData = doc.getElementsByTagNameNS(NS_MAIN, 'sheetData')[0]
+    if (!sheetData) throw new RelatorioFormatadoError(`"${relatorioPath}" não possui <sheetData>`)
+
+    const linhas = reconciled.slice(0, RELATORIO_LIMITE_LINHAS)
+    linhas.forEach((row, i) => {
+      const rowNum = RELATORIO_HEADER_ROW + 1 + i
+      const rowEl = getOrCreateRow(doc, sheetData, rowNum)
+      setCellInlineText(doc, rowEl, `${RELATORIO_COL_JUSTIFICATIVA}${rowNum}`, row.justificativa || 'NÃO PRECISA')
+      setCellInlineText(doc, rowEl, `${RELATORIO_COL_OBSERVACAO}${rowNum}`, row.observacao || '')
+    })
+
+    zip.file(relatorioPath, serializeXml(doc))
+  }
+
+  // -----------------------------------------------------------------------
   // Marca o workbook para recalcular tudo ao abrir no Excel (os valores em
   // cache das fórmulas continuam sendo os do modelo até isso acontecer,
   // já que nada aqui avalia fórmulas)
@@ -192,7 +296,7 @@
   // API pública
   // -----------------------------------------------------------------------
 
-  async function gerar(templateUrl, sefaz, sistema) {
+  async function gerar(templateUrl, sefaz, sistema, reconciled) {
     const resp = await fetch(templateUrl)
     if (!resp.ok) throw new RelatorioFormatadoError('Falha ao buscar o modelo do relatório')
     const buffer = await resp.arrayBuffer()
@@ -200,13 +304,17 @@
 
     const sefazPath = await findSheetPath(zip, 'SEFAZ')
     const sistemaPath = await findSheetPath(zip, 'SISTEMA')
+    const relatorioPath = await findSheetPath(zip, 'RELATÓRIO')
 
     await writeSheetData(zip, sefazPath, buildSefazRows(sefaz))
     await writeSheetData(zip, sistemaPath, buildSistemaRows(sistema))
+    if (reconciled && reconciled.length) {
+      await writeJustificativasObservacoes(zip, relatorioPath, reconciled)
+    }
     await forceFullCalcOnLoad(zip)
 
     return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
   }
 
-  global.ConciliacaoRelatorio = { gerar, RelatorioFormatadoError }
+  global.ConciliacaoRelatorio = { gerar, RelatorioFormatadoError, RELATORIO_LIMITE_LINHAS }
 })(typeof window !== 'undefined' ? window : globalThis)
