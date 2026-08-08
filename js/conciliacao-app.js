@@ -55,6 +55,14 @@
 
   const multiSelects = new Map()
 
+  function normalizeSearch(s) {
+    return String(s || '')
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .trim()
+  }
+
   function createMultiSelect(id, placeholder) {
     const root = el(id)
     root.innerHTML = `
@@ -62,11 +70,17 @@
         <span class="conc-multiselect-label"></span>
         <span class="conc-multiselect-caret">▾</span>
       </button>
-      <div class="conc-multiselect-menu"></div>
+      <div class="conc-multiselect-menu">
+        <div class="conc-multiselect-search-wrap">
+          <input type="text" class="conc-multiselect-search" placeholder="Pesquisar..." />
+        </div>
+        <div class="conc-multiselect-options"></div>
+      </div>
     `
     const toggle = root.querySelector('.conc-multiselect-toggle')
     const label = root.querySelector('.conc-multiselect-label')
-    const menu = root.querySelector('.conc-multiselect-menu')
+    const searchInput = root.querySelector('.conc-multiselect-search')
+    const optionsList = root.querySelector('.conc-multiselect-options')
     let options = []
     let selected = new Set()
 
@@ -79,16 +93,20 @@
       toggle.classList.toggle('is-active', selected.size > 0)
     }
 
-    function renderMenu() {
-      menu.innerHTML = ''
-      if (!options.length) {
-        const empty = document.createElement('div')
-        empty.className = 'conc-multiselect-menu-empty'
-        empty.textContent = 'Nenhuma opção'
-        menu.appendChild(empty)
-        return
-      }
-      for (const opt of options) {
+    function appendEmpty(text) {
+      const empty = document.createElement('div')
+      empty.className = 'conc-multiselect-menu-empty'
+      empty.textContent = text
+      optionsList.appendChild(empty)
+    }
+
+    function renderOptions() {
+      optionsList.innerHTML = ''
+      if (!options.length) return appendEmpty('Nenhuma opção')
+      const query = normalizeSearch(searchInput.value)
+      const filtered = query ? options.filter((o) => normalizeSearch(o.label).includes(query)) : options
+      if (!filtered.length) return appendEmpty('Nenhum resultado')
+      for (const opt of filtered) {
         const optLabel = document.createElement('label')
         optLabel.className = 'conc-multiselect-option'
         const cb = document.createElement('input')
@@ -103,22 +121,30 @@
         })
         optLabel.appendChild(cb)
         optLabel.appendChild(document.createTextNode(opt.label))
-        menu.appendChild(optLabel)
+        optionsList.appendChild(optLabel)
       }
     }
+
+    searchInput.addEventListener('input', renderOptions)
+    searchInput.addEventListener('click', (e) => e.stopPropagation())
 
     toggle.addEventListener('click', (e) => {
       e.stopPropagation()
       const willOpen = !root.classList.contains('is-open')
       closeAllMultiSelects()
-      if (willOpen) root.classList.add('is-open')
+      if (willOpen) {
+        root.classList.add('is-open')
+        searchInput.value = ''
+        renderOptions()
+        requestAnimationFrame(() => searchInput.focus())
+      }
     })
 
     const api = {
       setOptions(values, labelFn) {
         options = values.map((v) => ({ value: String(v), label: labelFn ? labelFn(v) : String(v) }))
         selected = new Set(Array.from(selected).filter((v) => options.some((o) => o.value === v)))
-        renderMenu()
+        renderOptions()
         updateToggle()
       },
       getValues() {
@@ -126,12 +152,12 @@
       },
       setValues(values) {
         selected = new Set((values || []).map(String))
-        renderMenu()
+        renderOptions()
         updateToggle()
       },
       clear() {
         selected = new Set()
-        renderMenu()
+        renderOptions()
         updateToggle()
       },
     }

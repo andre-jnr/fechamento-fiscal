@@ -460,18 +460,45 @@
   top: calc(100% + 4px);
   left: 0;
   z-index: 20;
-  min-width: 220px;
-  max-height: 260px;
-  overflow-y: auto;
+  flex-direction: column;
+  width: 240px;
+  max-height: 320px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
-  padding: 0.35rem;
+  overflow: hidden;
 }
 
 .conc-multiselect.is-open .conc-multiselect-menu {
-  display: block;
+  display: flex;
+}
+
+.conc-multiselect-search-wrap {
+  flex-shrink: 0;
+  padding: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.conc-multiselect-search {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: var(--dark);
+  background: var(--surface-muted);
+}
+
+.conc-multiselect-search:focus {
+  outline: none;
+  border-color: var(--green-main);
+}
+
+.conc-multiselect-options {
+  overflow-y: auto;
+  padding: 0.35rem;
 }
 
 .conc-multiselect-menu-empty {
