@@ -400,7 +400,6 @@
   align-items: center;
 }
 
-.conc-filters select,
 .conc-filters input[type="date"] {
   padding: 0.45rem 0.6rem;
   border-radius: 8px;
@@ -409,6 +408,97 @@
   font-family: inherit;
   color: var(--dark);
   background: var(--surface-muted);
+}
+
+/* ---------- Multi-select filter ---------- */
+
+.conc-multiselect {
+  position: relative;
+}
+
+.conc-multiselect-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: var(--dark);
+  background: var(--surface-muted);
+  cursor: pointer;
+  max-width: 190px;
+}
+
+.conc-multiselect-toggle:hover {
+  border-color: var(--green-main);
+}
+
+.conc-multiselect.is-open .conc-multiselect-toggle,
+.conc-multiselect-toggle.is-active {
+  border-color: var(--green-main);
+  color: var(--green-main);
+}
+
+.conc-multiselect-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conc-multiselect-caret {
+  margin-left: auto;
+  font-size: 0.65rem;
+  color: var(--gray);
+  flex-shrink: 0;
+}
+
+.conc-multiselect-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  min-width: 220px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+  padding: 0.35rem;
+}
+
+.conc-multiselect.is-open .conc-multiselect-menu {
+  display: block;
+}
+
+.conc-multiselect-menu-empty {
+  padding: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--gray);
+}
+
+.conc-multiselect-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: var(--dark);
+  cursor: pointer;
+}
+
+.conc-multiselect-option:hover {
+  background: var(--surface-muted);
+}
+
+.conc-multiselect-option input[type="checkbox"] {
+  accent-color: var(--green-main);
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .conc-search {

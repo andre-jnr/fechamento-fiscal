@@ -50,6 +50,107 @@
   const el = (id) => document.getElementById(id)
 
   // -----------------------------------------------------------------------
+  // Multi-select (filtros)
+  // -----------------------------------------------------------------------
+
+  const multiSelects = new Map()
+
+  function createMultiSelect(id, placeholder) {
+    const root = el(id)
+    root.innerHTML = `
+      <button type="button" class="conc-multiselect-toggle">
+        <span class="conc-multiselect-label"></span>
+        <span class="conc-multiselect-caret">▾</span>
+      </button>
+      <div class="conc-multiselect-menu"></div>
+    `
+    const toggle = root.querySelector('.conc-multiselect-toggle')
+    const label = root.querySelector('.conc-multiselect-label')
+    const menu = root.querySelector('.conc-multiselect-menu')
+    let options = []
+    let selected = new Set()
+
+    function updateToggle() {
+      if (selected.size === 0) label.textContent = placeholder
+      else if (selected.size === 1) {
+        const opt = options.find((o) => o.value === Array.from(selected)[0])
+        label.textContent = opt ? opt.label : placeholder
+      } else label.textContent = `${placeholder} (${selected.size})`
+      toggle.classList.toggle('is-active', selected.size > 0)
+    }
+
+    function renderMenu() {
+      menu.innerHTML = ''
+      if (!options.length) {
+        const empty = document.createElement('div')
+        empty.className = 'conc-multiselect-menu-empty'
+        empty.textContent = 'Nenhuma opção'
+        menu.appendChild(empty)
+        return
+      }
+      for (const opt of options) {
+        const optLabel = document.createElement('label')
+        optLabel.className = 'conc-multiselect-option'
+        const cb = document.createElement('input')
+        cb.type = 'checkbox'
+        cb.value = opt.value
+        cb.checked = selected.has(opt.value)
+        cb.addEventListener('change', () => {
+          if (cb.checked) selected.add(opt.value)
+          else selected.delete(opt.value)
+          updateToggle()
+          root.dispatchEvent(new Event('change'))
+        })
+        optLabel.appendChild(cb)
+        optLabel.appendChild(document.createTextNode(opt.label))
+        menu.appendChild(optLabel)
+      }
+    }
+
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const willOpen = !root.classList.contains('is-open')
+      closeAllMultiSelects()
+      if (willOpen) root.classList.add('is-open')
+    })
+
+    const api = {
+      setOptions(values, labelFn) {
+        options = values.map((v) => ({ value: String(v), label: labelFn ? labelFn(v) : String(v) }))
+        selected = new Set(Array.from(selected).filter((v) => options.some((o) => o.value === v)))
+        renderMenu()
+        updateToggle()
+      },
+      getValues() {
+        return Array.from(selected)
+      },
+      setValues(values) {
+        selected = new Set((values || []).map(String))
+        renderMenu()
+        updateToggle()
+      },
+      clear() {
+        selected = new Set()
+        renderMenu()
+        updateToggle()
+      },
+    }
+    updateToggle()
+    multiSelects.set(id, api)
+    return api
+  }
+
+  function closeAllMultiSelects() {
+    document.querySelectorAll('.conc-multiselect.is-open').forEach((r) => r.classList.remove('is-open'))
+  }
+
+  document.addEventListener('click', (e) => {
+    document.querySelectorAll('.conc-multiselect.is-open').forEach((r) => {
+      if (!r.contains(e.target)) r.classList.remove('is-open')
+    })
+  })
+
+  // -----------------------------------------------------------------------
   // Toasts
   // -----------------------------------------------------------------------
 
@@ -219,56 +320,35 @@
     )
   }
 
-  function fillSelect(selectEl, values, placeholder, labelFn) {
-    const current = selectEl.value
-    selectEl.innerHTML = ''
-    const optAll = document.createElement('option')
-    optAll.value = ''
-    optAll.textContent = placeholder
-    selectEl.appendChild(optAll)
-    for (const v of values) {
-      const opt = document.createElement('option')
-      opt.value = v
-      opt.textContent = labelFn ? labelFn(v) : v
-      selectEl.appendChild(opt)
-    }
-    if (values.includes(current)) selectEl.value = current
-  }
-
   function renderFilterOptions() {
     const rows = state.reconciled
-    fillSelect(el('filterStatus'), uniqueSorted(rows, 'status').filter(Boolean), 'Status')
-    fillSelect(el('filterUf'), uniqueSorted(rows, 'uf'), 'UF')
-    fillSelect(el('filterFornecedor'), uniqueSorted(rows, 'fornecedor'), 'Fornecedor')
-    fillSelect(el('filterCnpj'), uniqueSorted(rows, 'cnpjEmissorFormatado'), 'CNPJ')
-    fillSelect(el('filterTipo'), uniqueSorted(rows, 'tipo'), 'Tipo')
-    fillSelect(
-      el('filterCfop'),
-      Array.from(new Set(rows.map((r) => r.cfop).filter(Boolean))).sort((a, b) => a - b),
-      'CFOP'
+    multiSelects.get('filterStatus').setOptions(uniqueSorted(rows, 'status').filter(Boolean))
+    multiSelects.get('filterUf').setOptions(uniqueSorted(rows, 'uf'))
+    multiSelects.get('filterFornecedor').setOptions(uniqueSorted(rows, 'fornecedor'))
+    multiSelects.get('filterCnpj').setOptions(uniqueSorted(rows, 'cnpjEmissorFormatado'))
+    multiSelects.get('filterTipo').setOptions(uniqueSorted(rows, 'tipo'))
+    multiSelects.get('filterCfop').setOptions(
+      Array.from(new Set(rows.map((r) => r.cfop).filter(Boolean))).sort((a, b) => a - b)
     )
-    fillSelect(el('filterSituacao'), uniqueSorted(rows, 'situacao'), 'Situação')
-    fillSelect(
-      el('filterJustificativa'),
-      Engine.JUSTIFICATIVA_OPCOES,
-      'Justificativa',
-      (v) => JUSTIFICATIVA_LABELS[v] || v
-    )
-    fillSelect(el('filterUnidade'), uniqueSorted(rows, 'unidade'), 'Unidade')
+    multiSelects.get('filterSituacao').setOptions(uniqueSorted(rows, 'situacao'))
+    multiSelects
+      .get('filterJustificativa')
+      .setOptions(Engine.JUSTIFICATIVA_OPCOES, (v) => JUSTIFICATIVA_LABELS[v] || v)
+    multiSelects.get('filterUnidade').setOptions(uniqueSorted(rows, 'unidade'))
     el('filtersBar').style.display = 'flex'
   }
 
   function readFilters() {
     const f = {
-      status: el('filterStatus').value,
-      uf: el('filterUf').value,
-      fornecedor: el('filterFornecedor').value,
-      cnpj: el('filterCnpj').value,
-      tipo: el('filterTipo').value,
-      cfop: el('filterCfop').value,
-      situacao: el('filterSituacao').value,
-      justificativa: el('filterJustificativa').value,
-      unidade: el('filterUnidade').value,
+      status: multiSelects.get('filterStatus').getValues(),
+      uf: multiSelects.get('filterUf').getValues(),
+      fornecedor: multiSelects.get('filterFornecedor').getValues(),
+      cnpj: multiSelects.get('filterCnpj').getValues(),
+      tipo: multiSelects.get('filterTipo').getValues(),
+      cfop: multiSelects.get('filterCfop').getValues(),
+      situacao: multiSelects.get('filterSituacao').getValues(),
+      justificativa: multiSelects.get('filterJustificativa').getValues(),
+      unidade: multiSelects.get('filterUnidade').getValues(),
       busca: el('filterBusca').value,
     }
     const dataInicio = el('filterDataInicio').value
@@ -286,12 +366,12 @@
     ;[
       'filterStatus', 'filterUf', 'filterFornecedor', 'filterCnpj', 'filterTipo',
       'filterCfop', 'filterSituacao', 'filterJustificativa', 'filterUnidade',
-    ].forEach((id) => (el(id).value = ''))
+    ].forEach((id) => multiSelects.get(id).clear())
     el('filterBusca').value = ''
     el('filterDataInicio').value = ''
     el('filterDataFim').value = ''
-    document.querySelectorAll('.conc-stat-card.is-active').forEach((c) => c.classList.remove('is-active'))
     state.page = 1
+    renderStats()
     renderTable()
   }
 
@@ -304,7 +384,8 @@
     grid.style.display = 'grid'
     grid.innerHTML = ''
     const stats = Engine.computeStats(state.reconciled)
-    const activeStatus = el('filterStatus').value
+    const statusFilter = multiSelects.get('filterStatus')
+    const activeStatuses = statusFilter.getValues()
 
     for (const card of STAT_CARDS) {
       const isTotal = card.key === '__total__'
@@ -314,7 +395,7 @@
       const btn = document.createElement('button')
       btn.type = 'button'
       btn.className = 'conc-stat-card' + (isTotal ? ' conc-stat-card--total' : '')
-      if (!isTotal && activeStatus === card.key) btn.classList.add('is-active')
+      if (!isTotal && activeStatuses.includes(card.key)) btn.classList.add('is-active')
       btn.innerHTML = `
         <div class="label">${escapeHtml(card.label)}</div>
         <div class="value">${qtd.toLocaleString('pt-BR')}</div>
@@ -322,9 +403,11 @@
       `
       btn.addEventListener('click', () => {
         if (isTotal) {
-          el('filterStatus').value = ''
+          statusFilter.clear()
         } else {
-          el('filterStatus').value = el('filterStatus').value === card.key ? '' : card.key
+          const current = statusFilter.getValues()
+          const next = current.includes(card.key) ? current.filter((v) => v !== card.key) : current.concat(card.key)
+          statusFilter.setValues(next)
         }
         state.page = 1
         renderStats()
@@ -591,6 +674,16 @@
   // -----------------------------------------------------------------------
 
   function bootstrap() {
+    createMultiSelect('filterStatus', 'Status')
+    createMultiSelect('filterUf', 'UF')
+    createMultiSelect('filterFornecedor', 'Fornecedor')
+    createMultiSelect('filterCnpj', 'CNPJ')
+    createMultiSelect('filterTipo', 'Tipo')
+    createMultiSelect('filterCfop', 'CFOP')
+    createMultiSelect('filterSituacao', 'Situação')
+    createMultiSelect('filterJustificativa', 'Justificativa')
+    createMultiSelect('filterUnidade', 'Unidade')
+
     setupUpload('cardSefaz', 'dropSefaz', 'inputSefaz', 'statusSefaz', async (file) => {
       const result = await Parsers.parseSefazCsv(file)
       state.sefaz = result

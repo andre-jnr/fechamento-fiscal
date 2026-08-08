@@ -265,19 +265,24 @@
   // Filtros e estatísticas
   // ---------------------------------------------------------------------
 
+  function matchesMulti(selected, value) {
+    if (!selected || !selected.length) return true
+    return selected.map(String).includes(String(value))
+  }
+
   function applyFilters(rows, filters) {
     if (!filters) return rows
     const busca = (filters.busca || '').trim().toLowerCase()
     return rows.filter((row) => {
-      if (filters.status && row.status !== filters.status) return false
-      if (filters.uf && row.uf !== filters.uf) return false
-      if (filters.fornecedor && row.fornecedor !== filters.fornecedor) return false
-      if (filters.cnpj && row.cnpjEmissorFormatado !== filters.cnpj) return false
-      if (filters.tipo && row.tipo !== filters.tipo) return false
-      if (filters.cfop && String(row.cfop) !== String(filters.cfop)) return false
-      if (filters.situacao && row.situacao !== filters.situacao) return false
-      if (filters.justificativa && row.justificativa !== filters.justificativa) return false
-      if (filters.unidade && row.unidade !== filters.unidade) return false
+      if (!matchesMulti(filters.status, row.status)) return false
+      if (!matchesMulti(filters.uf, row.uf)) return false
+      if (!matchesMulti(filters.fornecedor, row.fornecedor)) return false
+      if (!matchesMulti(filters.cnpj, row.cnpjEmissorFormatado)) return false
+      if (!matchesMulti(filters.tipo, row.tipo)) return false
+      if (!matchesMulti(filters.cfop, row.cfop)) return false
+      if (!matchesMulti(filters.situacao, row.situacao)) return false
+      if (!matchesMulti(filters.justificativa, row.justificativa)) return false
+      if (!matchesMulti(filters.unidade, row.unidade)) return false
       if (filters.dataInicio && row.emissao && row.emissao < filters.dataInicio) return false
       if (filters.dataFim && row.emissao && row.emissao > filters.dataFim) return false
       if (busca) {
