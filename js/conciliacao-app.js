@@ -442,8 +442,11 @@
       grid.appendChild(btn)
     }
 
+    const valorSelecionado = getFilteredRows().reduce((sum, row) => sum + (row.valor || 0), 0)
+
     const extra = [
       { label: 'Total em Valor', value: currencyFmt.format(stats.valorTotal) },
+      { label: 'Valor Selecionado', value: currencyFmt.format(valorSelecionado) },
       { label: 'Valor Não Lançado', value: currencyFmt.format(stats.valorNaoLancado) },
       { label: 'Valor Recebido', value: currencyFmt.format(stats.valorRecebido) },
     ]
