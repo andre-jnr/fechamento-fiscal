@@ -174,7 +174,22 @@
     document.querySelectorAll('.conc-multiselect.is-open').forEach((r) => {
       if (!r.contains(e.target)) r.classList.remove('is-open')
     })
+    document.querySelectorAll('.conc-link-dropdown.is-open').forEach((r) => {
+      if (!r.contains(e.target)) r.classList.remove('is-open')
+    })
   })
+
+  function setupLinkDropdown(rootId, toggleId) {
+    const root = el(rootId)
+    const toggle = el(toggleId)
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const willOpen = !root.classList.contains('is-open')
+      closeAllMultiSelects()
+      document.querySelectorAll('.conc-link-dropdown.is-open').forEach((r) => r.classList.remove('is-open'))
+      if (willOpen) root.classList.add('is-open')
+    })
+  }
 
   // -----------------------------------------------------------------------
   // Toasts
@@ -712,6 +727,8 @@
     createMultiSelect('filterSituacao', 'Situação')
     createMultiSelect('filterJustificativa', 'Justificativa')
     createMultiSelect('filterUnidade', 'Unidade')
+
+    setupLinkDropdown('dropdownSistema', 'btnSistema')
 
     setupUpload('cardSefaz', 'dropSefaz', 'inputSefaz', 'statusSefaz', async (file) => {
       const result = await Parsers.parseSefazCsv(file)

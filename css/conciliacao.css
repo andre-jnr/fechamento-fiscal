@@ -94,6 +94,7 @@
 
 .conc-header-actions {
   display: flex;
+  align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
 }
@@ -104,8 +105,10 @@
   gap: 0.5rem;
   padding: 0.6rem 1rem;
   border-radius: 10px;
+  font-family: inherit;
   font-size: 0.85rem;
   font-weight: 600;
+  line-height: 1.2;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--dark);
@@ -136,6 +139,64 @@
 .conc-btn--primary:hover {
   color: #fff;
   box-shadow: var(--shadow-md);
+}
+
+/* ---------- Header link dropdown (SISTEMA) ---------- */
+
+.conc-link-dropdown {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.conc-link-dropdown-toggle .conc-multiselect-caret {
+  margin-left: 0;
+  transition: transform 0.15s ease;
+}
+
+.conc-link-dropdown.is-open .conc-link-dropdown-toggle {
+  border-color: var(--green-main);
+  color: var(--green-main);
+}
+
+.conc-link-dropdown.is-open .conc-multiselect-caret {
+  transform: rotate(180deg);
+}
+
+.conc-link-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  flex-direction: column;
+  min-width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+  overflow: hidden;
+  padding: 0.35rem;
+  text-align: left;
+}
+
+.conc-link-dropdown.is-open .conc-link-dropdown-menu {
+  display: flex;
+}
+
+.conc-link-dropdown-menu a {
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: var(--dark);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.conc-link-dropdown-menu a:hover {
+  background: var(--surface-muted);
+  color: var(--green-main);
 }
 
 /* ---------- Upload ---------- */
