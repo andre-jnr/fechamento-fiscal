@@ -74,12 +74,13 @@ Tabelas, gráficos e slicers). Ele abre o arquivo como ZIP (JSZip) e troca só o
 
 Premissas fixas presas ao modelo (revisar se o `.xlsx` for regravado pelo Excel):
 
-- Aba SEFAZ com layout de colunas posicional: `A`=UF, `C`=NF, `D`=SÉRIE, `E`=EMISSÃO,
-  `F`=CNPJ EMISSOR, `H`=FORNECEDOR, `L`=CFOP, `N`=SITUAÇÃO, `O`=TIPO, `P`=VALOR,
-  `V`=REJEITADA (as fórmulas da aba RELATÓRIO referenciam essas posições).
-- Tabela `RELATORIO` = `B18:O1105`; cabeçalho na linha 18; dados 19–1105
-  (`RELATORIO_LIMITE_LINHAS = 1087`); `M`=Justificativa, `N`=Observação, `O`=CHAVE
-  (coluna adicionada por `patchRelatorioTable`).
+- Aba SEFAZ com layout de colunas posicional: `A`=UF, `B`=CHAVE, `C`=NF, `D`=SÉRIE,
+  `E`=EMISSÃO, `F`=CNPJ EMISSOR, `H`=FORNECEDOR, `L`=CFOP, `N`=SITUAÇÃO, `O`=TIPO,
+  `P`=VALOR, `V`=REJEITADA (as fórmulas da aba RELATÓRIO referenciam essas posições).
+- Tabela `RELATORIO` = `B19:O1106`; cabeçalho na linha 19; dados 20–1106
+  (`RELATORIO_LIMITE_LINHAS = 1087`, `RELATORIO_HEADER_ROW = 19`); só `M`=Justificativa
+  e `N`=Observação são escritas pelo app. `O`=CHAVE já faz parte do modelo, com fórmula
+  própria (`IF(SEFAZ!B2="","",SEFAZ!B2)`) — o app não a toca.
 - `forceFullCalcOnLoad` marca o workbook para recalcular ao abrir (os valores em cache
   das fórmulas continuam os do modelo até o Excel abrir).
 
