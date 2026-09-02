@@ -21,6 +21,84 @@
   <body class="conc-body">
     <div class="conc-toasts" id="toasts"></div>
 
+    <div class="conc-modal-overlay" id="novidadesOverlay" hidden>
+      <div
+        class="conc-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="novidadesTitulo"
+      >
+        <div class="conc-modal-head">
+          <span class="conc-modal-badge">Atualização de setembro</span>
+          <h2 id="novidadesTitulo">O que mudou nesta página</h2>
+          <p>Três novidades para facilitar o fechamento fiscal:</p>
+        </div>
+        <ul class="conc-modal-list">
+          <li>
+            <span class="conc-modal-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            </span>
+            <div>
+              <strong>Copiar a chave da nota com 1 clique</strong>
+              <span
+                >Cada linha da tabela tem um botão de copiar a chave de acesso.
+                No relatório em Excel, agora existe a coluna <b>CHAVE</b> na aba
+                RELATÓRIO — é só clicar na célula e Ctrl+C.</span
+              >
+            </div>
+          </li>
+          <li>
+            <span class="conc-modal-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <ellipse cx="12" cy="5" rx="8" ry="3" />
+                <path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" />
+                <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
+              </svg>
+            </span>
+            <div>
+              <strong>O que você preenche fica salvo</strong>
+              <span
+                >Justificativas e observações são guardadas por nota (pela chave
+                de acesso). Ao importar os arquivos da SEFAZ e do sistema em
+                outro dia, o que já foi preenchido continua lá.</span
+              >
+            </div>
+          </li>
+          <li>
+            <span class="conc-modal-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M12 15V3" />
+              </svg>
+            </span>
+            <div>
+              <strong>Baixar a conciliação e importar depois</strong>
+              <span
+                >Use <b>Exportar Conciliação</b> para baixar um único arquivo com
+                todos os dados e tudo o que foi preenchido. Quem receber esse
+                arquivo por e-mail usa <b>Importar Conciliação</b> e vê o
+                relatório inteiro montado — sem precisar dos CSV/XLSX
+                originais.</span
+              >
+            </div>
+          </li>
+        </ul>
+        <div class="conc-modal-foot">
+          <button
+            type="button"
+            class="conc-btn conc-btn--primary"
+            id="btnNovidadesOk"
+          >
+            Entendi
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="conc-shell">
       <header class="conc-header">
         <div class="conc-title-block">
@@ -94,6 +172,27 @@
           <button class="conc-btn" id="btnExportFiltered" disabled>
             Exportar Filtrados
           </button>
+          <button
+            class="conc-btn"
+            id="btnExportBundle"
+            disabled
+            title="Baixa um único arquivo .json com os dados da SEFAZ, do sistema e tudo o que foi preenchido — para enviar por e-mail"
+          >
+            Exportar Conciliação
+          </button>
+          <button
+            class="conc-btn"
+            id="btnImportBundle"
+            title="Abre um arquivo .json exportado e reconstrói o relatório inteiro com os dados alimentados"
+          >
+            Importar Conciliação
+          </button>
+          <input
+            type="file"
+            id="inputImportBundle"
+            accept=".json,application/json"
+            hidden
+          />
         </div>
       </header>
 
@@ -245,6 +344,7 @@
           <table class="conc-table">
             <thead>
               <tr>
+                <th class="col-chave-h" title="Copiar chave de acesso">Chave</th>
                 <th data-sort="uf">UF <span class="sort-icon">↕</span></th>
                 <th data-sort="nf">NF <span class="sort-icon">↕</span></th>
                 <th data-sort="serie">

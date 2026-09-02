@@ -284,12 +284,13 @@
         const chunk = sefazRows.slice(i, i + chunkSize)
         for (const row of chunk) {
           const key = Engine.noteKey(row)
-          const override = overrides.get(key)
+          const overrideId = Engine.overrideId(row)
+          const override = overrides.get(overrideId)
           const justificativa = (override && override.justificativa) || 'NÃO PRECISA'
           const observacao = (override && override.observacao) || ''
           const unidade = Engine.unidadeNome(row.cnpjDestinatario)
           const status = Engine.conciliarNota(row, indices, justificativa)
-          results.push(Object.assign({}, row, { key, unidade, justificativa, observacao, status }))
+          results.push(Object.assign({}, row, { key, overrideId, unidade, justificativa, observacao, status }))
         }
         updateProgress(Math.round(((i + chunk.length) / sefazRows.length) * 100))
         await nextTick()
@@ -319,6 +320,7 @@
       el('btnExportAll').disabled = false
       el('btnExportFiltered').disabled = false
       el('btnRelatorioFormatado').disabled = false
+      el('btnExportBundle').disabled = false
       el('emptyState').style.display = 'none'
       showToast(`Conciliação concluída — ${results.length} notas processadas`, 'success')
     } catch (err) {
@@ -527,6 +529,7 @@
     for (const row of pageRows) {
       const tr = document.createElement('tr')
 
+      tr.appendChild(chaveCell(row))
       tr.appendChild(td(row.uf))
       tr.appendChild(td(row.nf))
       tr.appendChild(td(row.serie))
@@ -602,6 +605,62 @@
     return cell
   }
 
+  const CLIPBOARD_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+
+  function chaveCell(row) {
+    const cell = document.createElement('td')
+    cell.className = 'col-chave'
+    if (row.chave) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'conc-chave-btn'
+      btn.dataset.chave = row.chave
+      btn.title = `Copiar chave: ${row.chave}`
+      btn.setAttribute('aria-label', 'Copiar chave da nota')
+      btn.innerHTML = CLIPBOARD_SVG
+      cell.appendChild(btn)
+    } else {
+      cell.textContent = '—'
+    }
+    return cell
+  }
+
+  function copyToClipboard(text, successMsg) {
+    if (!text) return
+    const ok = () => showToast(successMsg, 'success')
+    const fail = () =>
+      showToast('Não foi possível copiar automaticamente. Selecione e copie manualmente.', 'error')
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(ok, () => {
+        if (legacyCopy(text)) ok()
+        else fail()
+      })
+    } else if (legacyCopy(text)) {
+      ok()
+    } else {
+      fail()
+    }
+  }
+
+  function legacyCopy(text) {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.setAttribute('readonly', '')
+      ta.style.position = 'fixed'
+      ta.style.top = '-1000px'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      const done = document.execCommand('copy')
+      ta.remove()
+      return done
+    } catch (e) {
+      return false
+    }
+  }
+
   // -----------------------------------------------------------------------
   // Edição inline (delegação de eventos)
   // -----------------------------------------------------------------------
@@ -611,6 +670,10 @@
     tbody.addEventListener('change', (e) => {
       if (e.target.matches('.justificativa-select')) onJustificativaChange(e.target)
       else if (e.target.matches('.observacao-input')) onObservacaoChange(e.target)
+    })
+    tbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('.conc-chave-btn')
+      if (btn) copyToClipboard(btn.dataset.chave, 'Chave copiada para a área de transferência.')
     })
   }
 
@@ -633,9 +696,10 @@
   }
 
   function persistOverride(row) {
-    Storage.saveOverride(row.key, { justificativa: row.justificativa, observacao: row.observacao }).catch(
-      (err) => console.error('Falha ao salvar edição', err)
-    )
+    Storage.saveOverride(row.overrideId, {
+      justificativa: row.justificativa,
+      observacao: row.observacao,
+    }).catch((err) => console.error('Falha ao salvar edição', err))
   }
 
   // -----------------------------------------------------------------------
@@ -714,6 +778,118 @@
   }
 
   // -----------------------------------------------------------------------
+  // Exportar / importar conciliação (.json)
+  //
+  // Um único arquivo com os dados brutos da SEFAZ e do sistema + tudo o que
+  // foi alimentado (justificativa e observação por nota, identificadas pela
+  // chave de acesso). Quem recebe importa só esse arquivo e o relatório
+  // inteiro é reconstruído — sem precisar dos CSV/XLSX originais.
+  // -----------------------------------------------------------------------
+
+  const BUNDLE_FORMATO = 'conciliacao-fiscal'
+  const BUNDLE_VERSAO = 1
+
+  function exportBundle() {
+    if (!state.sefaz || !state.sistema || !state.reconciled.length) return
+    const bundle = {
+      formato: BUNDLE_FORMATO,
+      versao: BUNDLE_VERSAO,
+      geradoEm: new Date().toISOString(),
+      responsavel: el('inputResponsavel').value || '',
+      sefaz: { fileName: state.sefaz.fileName, rawMatrix: state.sefaz.rawMatrix },
+      sistema: { fileName: state.sistema.fileName, rawMatrix: state.sistema.rawMatrix },
+      notas: state.reconciled.map((r) => ({
+        id: r.overrideId,
+        chave: r.chave || '',
+        nf: r.nf,
+        justificativa: r.justificativa,
+        observacao: r.observacao || '',
+      })),
+    }
+
+    const blob = new Blob([JSON.stringify(bundle)], { type: 'application/json' })
+    const { mes, ano } = Engine.detectMesAno(state.sefaz.rows)
+    triggerDownload(blob, `conciliacao-${String(mes).toLowerCase()}-${ano}.json`)
+    showToast('Arquivo de conciliação exportado — envie-o por e-mail.', 'success')
+  }
+
+  function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  function markCardLoaded(cardId, statusId, name, count) {
+    el(cardId).classList.add('is-loaded')
+    el(statusId).innerHTML = `<span class="dot"></span> ${escapeHtml(name)} — ${count} notas`
+  }
+
+  async function importBundle(file) {
+    let bundle
+    try {
+      bundle = JSON.parse(await file.text())
+    } catch (e) {
+      showToast('Não foi possível ler o arquivo. Selecione um .json exportado por esta página.', 'error')
+      return
+    }
+    if (!bundle || bundle.formato !== BUNDLE_FORMATO || !bundle.sefaz || !bundle.sistema) {
+      showToast('Este arquivo não é um relatório de conciliação exportado por esta página.', 'error')
+      return
+    }
+
+    let sefaz
+    let sistema
+    try {
+      sefaz = Parsers.sefazRowsFromMatrix(bundle.sefaz.rawMatrix)
+      sefaz.fileName = bundle.sefaz.fileName || 'conciliacao-importada.csv'
+      sistema = Parsers.sistemaRowsFromMatrix(bundle.sistema.rawMatrix)
+      sistema.fileName = bundle.sistema.fileName || 'conciliacao-importada.xlsx'
+    } catch (err) {
+      const msg =
+        err instanceof Parsers.ConciliacaoImportError ? err.message : Parsers.MSG_FORMATO_INVALIDO
+      showToast(msg, 'error')
+      return
+    }
+
+    // Grava o que foi alimentado antes de conciliar — assim a conciliação já
+    // aplica as justificativas/observações do arquivo importado. Fica salvo
+    // localmente, então importações futuras de SEFAZ/sistema mantêm os dados.
+    try {
+      await Storage.saveOverridesBulk(
+        (bundle.notas || [])
+          .filter((n) => n && n.id)
+          .map((n) => ({
+            key: n.id,
+            justificativa: n.justificativa || 'NÃO PRECISA',
+            observacao: n.observacao || '',
+          }))
+      )
+    } catch (err) {
+      console.error('Falha ao salvar os dados alimentados importados', err)
+    }
+
+    state.sefaz = sefaz
+    state.sistema = sistema
+
+    if (bundle.responsavel) {
+      el('inputResponsavel').value = bundle.responsavel
+      localStorage.setItem('conc_responsavel', bundle.responsavel)
+    }
+
+    markCardLoaded('cardSefaz', 'statusSefaz', sefaz.fileName, sefaz.rows.length)
+    markCardLoaded('cardSistema', 'statusSistema', sistema.fileName, sistema.rows.length)
+    renderHeader()
+    updateConciliarButton()
+
+    await runConciliacao()
+  }
+
+  // -----------------------------------------------------------------------
   // Bootstrap
   // -----------------------------------------------------------------------
 
@@ -747,6 +923,13 @@
     el('btnExportAll').addEventListener('click', () => exportRows(state.reconciled, 'conciliacao-fiscal.xlsx'))
     el('btnExportFiltered').addEventListener('click', () => exportRows(getFilteredRows(), 'conciliacao-fiscal-filtrado.xlsx'))
     el('btnRelatorioFormatado').addEventListener('click', gerarRelatorioFormatado)
+    el('btnExportBundle').addEventListener('click', exportBundle)
+    el('btnImportBundle').addEventListener('click', () => el('inputImportBundle').click())
+    el('inputImportBundle').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0]
+      if (file) importBundle(file)
+      e.target.value = ''
+    })
 
     ;[
       'filterStatus', 'filterUf', 'filterFornecedor', 'filterCnpj', 'filterTipo',
@@ -799,6 +982,49 @@
     el('inputResponsavel').addEventListener('change', (e) =>
       localStorage.setItem('conc_responsavel', e.target.value)
     )
+
+    setupNovidades()
+  }
+
+  // -----------------------------------------------------------------------
+  // Aviso de novidades — aparece uma única vez por navegador na primeira
+  // abertura após a atualização de setembro.
+  // -----------------------------------------------------------------------
+
+  const NOVIDADES_KEY = 'conc_novidades_setembro_2026'
+
+  function setupNovidades() {
+    const overlay = el('novidadesOverlay')
+    if (!overlay) return
+
+    let jaViu = false
+    try {
+      jaViu = localStorage.getItem(NOVIDADES_KEY) === '1'
+    } catch (e) {
+      /* localStorage indisponível — mostra o aviso mesmo assim */
+    }
+    if (jaViu) return
+
+    function fechar() {
+      overlay.hidden = true
+      document.removeEventListener('keydown', onKey)
+      try {
+        localStorage.setItem(NOVIDADES_KEY, '1')
+      } catch (e) {
+        /* ignora */
+      }
+    }
+
+    function onKey(e) {
+      if (e.key === 'Escape') fechar()
+    }
+
+    overlay.hidden = false
+    el('btnNovidadesOk').addEventListener('click', fechar)
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) fechar()
+    })
+    document.addEventListener('keydown', onKey)
   }
 
   document.addEventListener('DOMContentLoaded', bootstrap)

@@ -160,6 +160,30 @@
       assertEqual('Valor com R$', Engine.normalizeValor('R$ 100,00'), 100)
       assertEqual('NF vazia -> status vazio', Engine.conciliarNota(baseRow({ nf: '' }), Engine.buildIndices([], [])), '')
 
+      // --- overrideId: chave de acesso quando disponível, senão chave composta ---
+      ;(function () {
+        const chave = '1'.repeat(44)
+        assertEqual('chaveAcessoDigits com 44 dígitos', Engine.chaveAcessoDigits(chave), chave)
+        assertEqual('chaveAcessoDigits com string curta -> vazio', Engine.chaveAcessoDigits('123'), '')
+        assertEqual(
+          'chaveAcessoDigits ignora separadores',
+          Engine.chaveAcessoDigits('1'.repeat(22) + ' ' + '1'.repeat(22)),
+          chave
+        )
+        assertEqual('overrideId usa a chave de acesso', Engine.overrideId(baseRow({ chave })), chave)
+        const semChave = baseRow({ chave: '' })
+        assertEqual(
+          'overrideId cai para a chave composta sem chave de acesso',
+          Engine.overrideId(semChave),
+          Engine.noteKey(semChave)
+        )
+        assertEqual(
+          'overrideId é estável mesmo mudando série/emissão quando há chave',
+          Engine.overrideId(baseRow({ chave, serie: '9', emissao: diasAtras(30) })),
+          chave
+        )
+      })()
+
       // Regra 2: TIPO=ENTRADA classificado via sub-regra (não cai nas demais regras)
       ;(function () {
         const entrada = baseRow({ nf: '900', tipo: 'ENTRADA', cfop: 1926, emissao: diasAtras(10) })

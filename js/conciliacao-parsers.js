@@ -148,7 +148,18 @@
       throw new ConciliacaoImportError(MSG_FORMATO_INVALIDO)
     }
 
-    matrix = matrix.filter((row) => row.some((cell) => String(cell).trim() !== ''))
+    const result = sefazRowsFromMatrix(matrix)
+    result.fileName = file.name
+    return result
+  }
+
+  // Reconstrói as linhas normalizadas a partir da matriz bruta (linha 0 =
+  // cabeçalho). Usado tanto pelo parser de arquivo quanto pela importação de
+  // um arquivo de conciliação (.json), garantindo resultado idêntico.
+  function sefazRowsFromMatrix(rawMatrix) {
+    const matrix = (rawMatrix || []).filter(
+      (row) => Array.isArray(row) && row.some((cell) => String(cell).trim() !== '')
+    )
     if (matrix.length === 0) throw new ConciliacaoImportError(MSG_ARQUIVO_VAZIO)
 
     const headerRow = matrix[0]
@@ -197,7 +208,7 @@
       }
     })
 
-    return { rows, fileName: file.name, rawMatrix: matrix, colIndex }
+    return { rows, rawMatrix: matrix, colIndex }
   }
 
   // -----------------------------------------------------------------------
@@ -251,6 +262,18 @@
       }
     }
 
+    const result = sistemaRowsFromMatrix(matrix)
+    result.fileName = file.name
+    return result
+  }
+
+  // Reconstrói as linhas do sistema a partir da matriz bruta (linha 0 =
+  // cabeçalho). Compartilhado entre o parser de arquivo e a importação de um
+  // arquivo de conciliação (.json).
+  function sistemaRowsFromMatrix(rawMatrix) {
+    const matrix = (rawMatrix || []).filter(
+      (row) => Array.isArray(row) && row.some((cell) => String(cell).trim() !== '')
+    )
     if (matrix.length === 0) throw new ConciliacaoImportError(MSG_ARQUIVO_VAZIO)
 
     const headerRow = matrix[0]
@@ -277,13 +300,15 @@
       }
     })
 
-    return { rows, fileName: file.name, rawMatrix: matrix }
+    return { rows, rawMatrix: matrix }
   }
 
   global.ConciliacaoParsers = {
     ConciliacaoImportError,
     parseSefazCsv,
     parseSistemaXlsx,
+    sefazRowsFromMatrix,
+    sistemaRowsFromMatrix,
     MSG_ARQUIVO_INVALIDO,
     MSG_ARQUIVO_VAZIO,
     MSG_FORMATO_INVALIDO,

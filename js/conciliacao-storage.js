@@ -1,8 +1,10 @@
 /**
  * Persistência local (IndexedDB) — não há backend neste projeto (site
- * estático). Guarda as edições de Justificativa/Observação por nota
- * (chave = CNPJ Emissor + NF + Série + Valor + Emissão) e o histórico de
- * importações.
+ * estático). Guarda tudo o que o usuário alimenta por nota
+ * (Justificativa/Observação) e o histórico de importações. A chave de cada
+ * registro é o Engine.overrideId da nota — a chave de acesso da NF-e quando
+ * existe (estável entre importações de dias diferentes), com fallback para
+ * a chave composta (CNPJ Emissor + NF + Série + Valor + Emissão).
  */
 ;(function (global) {
   'use strict'
@@ -55,7 +57,31 @@
   async function saveOverride(key, data) {
     const store = await tx(STORE_OVERRIDES, 'readwrite')
     return promisifyRequest(
-      store.put({ key, justificativa: data.justificativa, observacao: data.observacao, updatedAt: Date.now() })
+      store.put({
+        key,
+        justificativa: data.justificativa,
+        observacao: data.observacao,
+        updatedAt: data.updatedAt || Date.now(),
+      })
+    )
+  }
+
+  // Grava vários registros de uma vez (usado ao importar um arquivo de
+  // conciliação) — todas as gravações na mesma transação.
+  async function saveOverridesBulk(list) {
+    if (!list || !list.length) return
+    const store = await tx(STORE_OVERRIDES, 'readwrite')
+    await Promise.all(
+      list.map((entry) =>
+        promisifyRequest(
+          store.put({
+            key: entry.key,
+            justificativa: entry.justificativa,
+            observacao: entry.observacao,
+            updatedAt: entry.updatedAt || Date.now(),
+          })
+        )
+      )
     )
   }
 
@@ -73,6 +99,7 @@
   global.ConciliacaoStorage = {
     getAllOverrides,
     saveOverride,
+    saveOverridesBulk,
     addHistoryEntry,
     getHistory,
   }

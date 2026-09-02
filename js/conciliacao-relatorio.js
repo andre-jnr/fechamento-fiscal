@@ -22,6 +22,8 @@
   const RELATORIO_HEADER_ROW = 18
   const RELATORIO_COL_JUSTIFICATIVA = 'M'
   const RELATORIO_COL_OBSERVACAO = 'N'
+  const RELATORIO_COL_CHAVE = 'O' // coluna extra acrescentada à tabela RELATORIO
+  const RELATORIO_SPANS_REF = '2:15' // B..O — abrange a nova coluna CHAVE
   const RELATORIO_LIMITE_LINHAS = 1087 // tamanho da tabela RELATORIO no modelo (linhas 19-1105)
 
   // XMLSerializer às vezes já emite a própria declaração <?xml ...?> (a
@@ -259,15 +261,83 @@
     const sheetData = doc.getElementsByTagNameNS(NS_MAIN, 'sheetData')[0]
     if (!sheetData) throw new RelatorioFormatadoError(`"${relatorioPath}" não possui <sheetData>`)
 
+    // Cabeçalho da nova coluna CHAVE (linha 18)
+    const headerRow = getOrCreateRow(doc, sheetData, RELATORIO_HEADER_ROW)
+    setCellInlineText(doc, headerRow, `${RELATORIO_COL_CHAVE}${RELATORIO_HEADER_ROW}`, 'CHAVE')
+    headerRow.setAttribute('spans', RELATORIO_SPANS_REF)
+
     const linhas = reconciled.slice(0, RELATORIO_LIMITE_LINHAS)
     linhas.forEach((row, i) => {
       const rowNum = RELATORIO_HEADER_ROW + 1 + i
       const rowEl = getOrCreateRow(doc, sheetData, rowNum)
       setCellInlineText(doc, rowEl, `${RELATORIO_COL_JUSTIFICATIVA}${rowNum}`, row.justificativa || 'NÃO PRECISA')
       setCellInlineText(doc, rowEl, `${RELATORIO_COL_OBSERVACAO}${rowNum}`, row.observacao || '')
+      if (row.chave) {
+        setCellInlineText(doc, rowEl, `${RELATORIO_COL_CHAVE}${rowNum}`, String(row.chave))
+        rowEl.setAttribute('spans', RELATORIO_SPANS_REF)
+      }
     })
 
+    // Amplia a dimensão declarada da planilha (…:N#### -> …:O####)
+    const dimEl = doc.getElementsByTagNameNS(NS_MAIN, 'dimension')[0]
+    if (dimEl) {
+      const ref = dimEl.getAttribute('ref') || ''
+      if (/:N\d+$/.test(ref)) dimEl.setAttribute('ref', ref.replace(/:N(\d+)$/, ':O$1'))
+    }
+
+    // Largura confortável para a coluna 15 (CHAVE tem 44 dígitos)
+    const colsEl = doc.getElementsByTagNameNS(NS_MAIN, 'cols')[0]
+    if (colsEl && !Array.from(colsEl.getElementsByTagName('col')).some((c) => c.getAttribute('min') === '15')) {
+      const colEl = doc.createElementNS(NS_MAIN, 'col')
+      colEl.setAttribute('min', '15')
+      colEl.setAttribute('max', '15')
+      colEl.setAttribute('width', '46')
+      colEl.setAttribute('customWidth', '1')
+      colsEl.appendChild(colEl)
+    }
+
     zip.file(relatorioPath, serializeXml(doc))
+  }
+
+  // -----------------------------------------------------------------------
+  // Acrescenta a coluna CHAVE à definição da Tabela RELATORIO (o intervalo
+  // da tabela, o autoFilter e a contagem/lista de colunas). Sem isso o Excel
+  // ignora a coluna 15 por estar fora do intervalo da tabela.
+  // -----------------------------------------------------------------------
+
+  function resolveZipPath(base, target) {
+    const stack = base.split('/').slice(0, -1)
+    for (const part of target.split('/')) {
+      if (part === '..') stack.pop()
+      else if (part !== '.' && part !== '') stack.push(part)
+    }
+    return stack.join('/')
+  }
+
+  async function patchRelatorioTable(zip, relatorioPath) {
+    const relsPath = relatorioPath.replace(/([^/]+)$/, '_rels/$1.rels')
+    const relsFile = zip.file(relsPath)
+    if (!relsFile) return
+    const relsDoc = new DOMParser().parseFromString(await relsFile.async('string'), 'application/xml')
+    const tableRel = Array.from(relsDoc.getElementsByTagName('Relationship')).find((r) =>
+      (r.getAttribute('Type') || '').endsWith('/table')
+    )
+    if (!tableRel) return
+
+    const tablePath = resolveZipPath(relatorioPath, tableRel.getAttribute('Target'))
+    const tableFile = zip.file(tablePath)
+    if (!tableFile) return
+    let xml = await tableFile.async('string')
+    if (/name="CHAVE"/.test(xml)) return // idempotente
+
+    xml = xml.replace(/(\bref=")(B18:)N(\d+)(")/g, '$1$2O$3$4')
+    xml = xml.replace(/(<tableColumns[^>]*\bcount=")(\d+)("[^>]*>)/, (m, a, n, b) => a + (parseInt(n, 10) + 1) + b)
+    xml = xml.replace(
+      '</tableColumns>',
+      '<tableColumn id="14" xr3:uid="{C4A5E7D1-0B2F-4A6C-9E3D-1F5A7B9C2D40}" name="CHAVE"/></tableColumns>'
+    )
+
+    zip.file(tablePath, xml)
   }
 
   // -----------------------------------------------------------------------
@@ -310,6 +380,7 @@
     await writeSheetData(zip, sistemaPath, buildSistemaRows(sistema))
     if (reconciled && reconciled.length) {
       await writeJustificativasObservacoes(zip, relatorioPath, reconciled)
+      await patchRelatorioTable(zip, relatorioPath)
     }
     await forceFullCalcOnLoad(zip)
 

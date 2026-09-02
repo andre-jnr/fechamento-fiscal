@@ -341,6 +341,22 @@
     ].join('|')
   }
 
+  // Chave de acesso da NF-e (44 dígitos) — só devolve quando tem exatamente
+  // 44 dígitos, do contrário string vazia.
+  function chaveAcessoDigits(value) {
+    const digits = onlyDigits(value)
+    return digits.length === 44 ? digits : ''
+  }
+
+  // ID de persistência de tudo o que o usuário alimenta sobre uma nota
+  // (justificativa, observação). Usa a chave de acesso quando disponível —
+  // ela é estável entre exportações e entre importações de dias diferentes —
+  // e cai para a chave composta quando a nota não traz chave (ex.: emitente
+  // pessoa física).
+  function overrideId(row) {
+    return chaveAcessoDigits(row && row.chave) || noteKey(row)
+  }
+
   const ConciliacaoEngine = {
     UNIDADES_POR_CNPJ,
     JUSTIFICATIVA_OPCOES,
@@ -365,6 +381,8 @@
     applyFilters,
     computeStats,
     noteKey,
+    chaveAcessoDigits,
+    overrideId,
     stripQuotes,
   }
 
