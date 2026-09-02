@@ -91,6 +91,9 @@ SEERRO(
                 SE([@CFOP] = 5926;
                     "DESAGREGAÇÃO";
 
+                SE(E([@CFOP] = 5949; OU([@[CNPJ EMISSOR]] = 19234190000725; [@[CNPJ EMISSOR]] = 19234190000130; [@[CNPJ EMISSOR]] = 19234190000300; [@[CNPJ EMISSOR]] = 19234190000482; [@[CNPJ EMISSOR]] = 19234190000644));
+                    "SAÍDA DE ESTOQUE";
+
                     SEERRO(
                         SE(
                             PROCV([@VALOR]; TABELA_ENTRADAS[VALOR]; 1; FALSO);
@@ -116,6 +119,7 @@ SEERRO(
     )
 )
 
+)
 )
 )
 )</code></pre>

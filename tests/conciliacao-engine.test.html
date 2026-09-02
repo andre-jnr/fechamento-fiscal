@@ -96,6 +96,32 @@
         assertEqual('Cenário 6 — CFOP 5927', Engine.conciliarNota(row, indices), 'DESCARTE')
       })()
 
+      // --- Cenário 6b: CFOP 5949 emitida por CNPJ próprio -> SAÍDA DE ESTOQUE ---
+      ;(function () {
+        const row = baseRow({
+          nf: '7931',
+          cfop: 5949,
+          cnpjEmissor: '19234190000644',
+          emissao: diasAtras(10),
+        })
+        const indices = Engine.buildIndices([row], [])
+        assertEqual('Cenário 6b — CFOP 5949 + CNPJ próprio', Engine.conciliarNota(row, indices), 'SAÍDA DE ESTOQUE')
+      })()
+
+      // --- Cenário 6c: CFOP 5949 de fornecedor terceiro -> não é saída de estoque ---
+      ;(function () {
+        const row = baseRow({ nf: '7932', cfop: 5949, emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [])
+        assertEqual('Cenário 6c — CFOP 5949 de terceiro', Engine.conciliarNota(row, indices), 'NÃO LANÇADA')
+      })()
+
+      // --- Cenário 6d: CNPJ próprio mas CFOP diferente de 5949 -> regra não dispara ---
+      ;(function () {
+        const row = baseRow({ nf: '7933', cfop: 5102, cnpjEmissor: '19234190000130', emissao: diasAtras(10) })
+        const indices = Engine.buildIndices([row], [])
+        assertEqual('Cenário 6d — CNPJ próprio, CFOP 5102', Engine.conciliarNota(row, indices), 'NÃO LANÇADA')
+      })()
+
       // --- Cenário 7: UF diferente de AM -> EM TRANSPORTE ---
       ;(function () {
         const row = baseRow({ nf: '794', uf: 'SP', emissao: diasAtras(10) })

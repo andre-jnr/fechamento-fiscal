@@ -31,6 +31,7 @@
     { key: 'DESAGREGAÇÃO', label: 'Desagregação' },
     { key: 'DEVOLUÇÃO', label: 'Devolução' },
     { key: 'DESCARTE', label: 'Descarte' },
+    { key: 'SAÍDA DE ESTOQUE', label: 'Saída de Estoque' },
   ]
 
   const currencyFmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })

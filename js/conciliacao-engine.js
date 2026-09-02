@@ -12,6 +12,17 @@
     '19234190000482': 'UNIDADE: MONTE DAS OLIVEIRAS',
   }
 
+  // CNPJs do próprio grupo (todas as filiais). Uma nota de SAÍDA com
+  // CFOP 5949 emitida por um desses CNPJs é transferência/baixa interna de
+  // estoque, não uma venda a terceiros.
+  const CNPJS_PROPRIOS = new Set([
+    '19234190000725',
+    '19234190000130',
+    '19234190000300',
+    '19234190000482',
+    '19234190000644',
+  ])
+
   const MESES_PT = [
     'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO',
     'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO',
@@ -238,6 +249,11 @@
     // 7) CFOP 5926 -> Desagregação
     if (row.cfop === 5926) return 'DESAGREGAÇÃO'
 
+    // 7b) CFOP 5949 emitida por um CNPJ do próprio grupo -> Saída de estoque
+    if (row.cfop === 5949 && CNPJS_PROPRIOS.has(normalizeCNPJ(row.cnpjEmissor))) {
+      return 'SAÍDA DE ESTOQUE'
+    }
+
     // 8) Valor casa exatamente com alguma linha ENTRADA do próprio SEFAZ
     if (indices.entradasValores.has(valorKey(row.valor))) return 'DEVOLUÇÃO'
 
@@ -295,7 +311,7 @@
 
   const STATUS_LIST = [
     'RECEBIDA', 'NÃO LANÇADA', 'FALTA CHEGAR', 'REJEITADA', 'CANCELADA',
-    'EM TRANSPORTE', 'DESAGREGAÇÃO', 'DEVOLUÇÃO', 'DESCARTE',
+    'EM TRANSPORTE', 'DESAGREGAÇÃO', 'DEVOLUÇÃO', 'DESCARTE', 'SAÍDA DE ESTOQUE',
     'PARA REJEITAR', 'DEVOLUÇÃO PARCIAL OU DEVOLUÇÃO DO MÊS ANTERIOR',
   ]
 
@@ -359,6 +375,7 @@
 
   const ConciliacaoEngine = {
     UNIDADES_POR_CNPJ,
+    CNPJS_PROPRIOS,
     JUSTIFICATIVA_OPCOES,
     TOLERANCIA_VALOR,
     normalizeCNPJ,

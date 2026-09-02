@@ -62,9 +62,9 @@ replicada nos três:
 3. a fórmula exibida (em português do Excel) em `index.html`.
 
 Ordem das regras: ENTRADA (sub-regras) → NF+valor casa no sistema (tolerância R$0,02) →
-CANCELADA → indicador SEFAZ de rejeição → justificativa manual → CFOP 5926 → valor casa
-com ENTRADA do próprio SEFAZ → CFOP 5927 → UF ≠ AM → emissão nos últimos 2 dias → NÃO
-LANÇADA.
+CANCELADA → indicador SEFAZ de rejeição → justificativa manual → CFOP 5926 → CFOP 5949
+emitida por um CNPJ do próprio grupo (`Engine.CNPJS_PROPRIOS`) → valor casa com ENTRADA
+do próprio SEFAZ → CFOP 5927 → UF ≠ AM → emissão nos últimos 2 dias → NÃO LANÇADA.
 
 ## `relatorio-fiscal.xlsx` — edição cirúrgica
 

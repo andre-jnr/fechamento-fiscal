@@ -27,6 +27,8 @@
   --badge-descarte-fg: #78350f;
   --badge-para-rejeitar-bg: #ffe9e0;
   --badge-para-rejeitar-fg: #c2410c;
+  --badge-saida-estoque-bg: #eef2ff;
+  --badge-saida-estoque-fg: #4338ca;
   --badge-neutro-bg: #eef2f7;
   --badge-neutro-fg: #334155;
 }
@@ -908,6 +910,7 @@ table.conc-table {
 .badge--desagregacao { background: var(--badge-desagregacao-bg); color: var(--badge-desagregacao-fg); }
 .badge--descarte { background: var(--badge-descarte-bg); color: var(--badge-descarte-fg); }
 .badge--para-rejeitar { background: var(--badge-para-rejeitar-bg); color: var(--badge-para-rejeitar-fg); }
+.badge--saida-de-estoque { background: var(--badge-saida-estoque-bg); color: var(--badge-saida-estoque-fg); }
 .badge--neutro { background: var(--badge-neutro-bg); color: var(--badge-neutro-fg); }
 
 /* ---------- Pagination ---------- */
