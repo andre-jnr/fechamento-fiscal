@@ -268,14 +268,38 @@
   }
 
   // Reconstrói as linhas do sistema a partir da matriz bruta (linha 0 =
-  // cabeçalho). Compartilhado entre o parser de arquivo e a importação de um
-  // arquivo de conciliação (.json).
+  // cabeçalho). Detecta automaticamente a origem (Moura ou Atak) e delega
+  // para o parser específico. Compartilhado entre o parser de arquivo e a
+  // importação de um arquivo de conciliação (.json).
   function sistemaRowsFromMatrix(rawMatrix) {
     const matrix = (rawMatrix || []).filter(
       (row) => Array.isArray(row) && row.some((cell) => String(cell).trim() !== '')
     )
     if (matrix.length === 0) throw new ConciliacaoImportError(MSG_ARQUIVO_VAZIO)
 
+    return detectSistemaOrigem(matrix) === 'atak'
+      ? sistemaAtakRowsFromMatrix(matrix)
+      : sistemaMouraRowsFromMatrix(matrix)
+  }
+
+  // Marcadores exclusivos do relatório do Atak (usado pela filial do CD).
+  function detectSistemaOrigem(matrix) {
+    for (const row of matrix.slice(0, 60)) {
+      for (const cell of row) {
+        const h = normalizeHeader(cell)
+        if (h === 'CHAVE FATO' || h.indexOf('TIPO MOVTO') === 0) return 'atak'
+        if (typeof cell === 'string' && cell.toLowerCase().indexOf('atak.com.br') !== -1) return 'atak'
+      }
+    }
+    const temDocumentoValorTotal = matrix.some(
+      (row) =>
+        row.some((c) => normalizeHeader(c) === 'DOCUMENTO') &&
+        row.some((c) => normalizeHeader(c) === 'VALOR TOTAL')
+    )
+    return temDocumentoValorTotal ? 'atak' : 'moura'
+  }
+
+  function sistemaMouraRowsFromMatrix(matrix) {
     const headerRow = matrix[0]
     const dataRows = matrix.slice(1)
     if (dataRows.length === 0) throw new ConciliacaoImportError(MSG_ARQUIVO_VAZIO)
@@ -300,7 +324,71 @@
       }
     })
 
-    return { rows, rawMatrix: matrix }
+    return { rows, rawMatrix: matrix, origem: 'moura' }
+  }
+
+  // Atak (filial do CD). O nº da NF e a série vêm da coluna "Documento", no
+  // formato `filial-tipo-serie-numero` (ex.: 111-NEE-000-139439 -> série 000,
+  // NF 139439). O valor é a coluna "Valor Total". Linhas de seção
+  // ("Tipo Movto.:") e de total ("Total do Movimento:", "Total Geral:") são
+  // ignoradas porque o último trecho de "Documento" não é numérico.
+  // Devolve um rawMatrix já no layout do Moura (Entrada/NF/Fornecedor/.../
+  // Vlr. Nota) para que o "Relatório Formatado" (Excel) funcione sem ajuste.
+  const ATAK_MATRIX_HEADER = [
+    'Entrada', 'NF', 'Fornecedor', 'Desconto', 'Vlr. Nota',
+    'Valor Contas a Pagar', 'Pedido', 'Conferência', 'Data Emissão',
+  ]
+
+  function parseDocumentoAtak(valor) {
+    const partes = String(valor == null ? '' : valor)
+      .split('-')
+      .map((p) => p.trim())
+      .filter((p) => p !== '')
+    if (partes.length < 3) return null
+    const numero = partes[partes.length - 1]
+    if (!/^\d+$/.test(numero)) return null
+    return { nf: numero, serie: partes[partes.length - 2] }
+  }
+
+  function sistemaAtakRowsFromMatrix(matrix) {
+    const headerIdx = matrix.findIndex(
+      (row) =>
+        row.some((c) => normalizeHeader(c) === 'DOCUMENTO') &&
+        row.some((c) => ['VALOR TOTAL', 'VALOR LIQUIDO'].includes(normalizeHeader(c)))
+    )
+    if (headerIdx === -1) throw new ConciliacaoImportError(msgColunaAusente('Documento / Valor Total'))
+
+    const headerRow = matrix[headerIdx]
+    const docIdx = findColumnIndex(headerRow, ['DOCUMENTO'])
+    const valorIdx = findColumnIndex(headerRow, ['VALOR TOTAL', 'VALOR LIQUIDO', 'VALOR'])
+    const fornecedorIdx = findColumnIndex(headerRow, ['NOME DO CADASTRO', 'FORNECEDOR', 'NOME DO CLIENTE'])
+
+    const rows = []
+    for (let i = headerIdx + 1; i < matrix.length; i++) {
+      const cells = matrix[i]
+      const doc = parseDocumentoAtak(cells[docIdx])
+      if (!doc) continue
+      rows.push({
+        nf: doc.nf,
+        serie: doc.serie,
+        valor: Engine.normalizeValor(cells[valorIdx]),
+        fornecedor: limparNomeCadastroAtak(fornecedorIdx === -1 ? '' : cells[fornecedorIdx]),
+        dataEmissao: '',
+      })
+    }
+    if (rows.length === 0) throw new ConciliacaoImportError(MSG_ARQUIVO_VAZIO)
+
+    const rawMatrix = [ATAK_MATRIX_HEADER.slice()]
+    for (const r of rows) {
+      rawMatrix.push(['', Number(r.nf), r.fornecedor, '', r.valor, '', '', '', ''])
+    }
+
+    return { rows, rawMatrix, origem: 'atak' }
+  }
+
+  // "90327-ARCELOMITTAL BRASIL" -> "ARCELOMITTAL BRASIL"
+  function limparNomeCadastroAtak(valor) {
+    return Engine.stripQuotes(valor).replace(/^\s*\d+\s*-\s*/, '').trim()
   }
 
   global.ConciliacaoParsers = {
@@ -309,6 +397,7 @@
     parseSistemaXlsx,
     sefazRowsFromMatrix,
     sistemaRowsFromMatrix,
+    detectSistemaOrigem,
     MSG_ARQUIVO_INVALIDO,
     MSG_ARQUIVO_VAZIO,
     MSG_FORMATO_INVALIDO,

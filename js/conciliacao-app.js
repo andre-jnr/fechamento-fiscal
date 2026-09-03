@@ -241,7 +241,7 @@
       try {
         const result = await onFile(file)
         card.classList.add('is-loaded')
-        status.innerHTML = `<span class="dot"></span> ${escapeHtml(file.name)} — ${result.rows.length} notas`
+        status.innerHTML = `<span class="dot"></span> ${escapeHtml(file.name)} — ${result.rows.length} notas${sistemaOrigemSufixo(result.origem)}`
         updateConciliarButton()
       } catch (err) {
         card.classList.remove('is-loaded')
@@ -256,6 +256,13 @@
     const div = document.createElement('div')
     div.textContent = s == null ? '' : String(s)
     return div.innerHTML
+  }
+
+  const SISTEMA_ORIGEM_LABEL = { moura: 'Moura', atak: 'Atak' }
+
+  function sistemaOrigemSufixo(origem) {
+    const label = SISTEMA_ORIGEM_LABEL[origem]
+    return label ? ` <span class="conc-origem-tag">${label}</span>` : ''
   }
 
   function updateConciliarButton() {
@@ -825,9 +832,9 @@
     URL.revokeObjectURL(url)
   }
 
-  function markCardLoaded(cardId, statusId, name, count) {
+  function markCardLoaded(cardId, statusId, name, count, origem) {
     el(cardId).classList.add('is-loaded')
-    el(statusId).innerHTML = `<span class="dot"></span> ${escapeHtml(name)} — ${count} notas`
+    el(statusId).innerHTML = `<span class="dot"></span> ${escapeHtml(name)} — ${count} notas${sistemaOrigemSufixo(origem)}`
   }
 
   async function importBundle(file) {
@@ -883,7 +890,7 @@
     }
 
     markCardLoaded('cardSefaz', 'statusSefaz', sefaz.fileName, sefaz.rows.length)
-    markCardLoaded('cardSistema', 'statusSistema', sistema.fileName, sistema.rows.length)
+    markCardLoaded('cardSistema', 'statusSistema', sistema.fileName, sistema.rows.length, sistema.origem)
     renderHeader()
     updateConciliarButton()
 

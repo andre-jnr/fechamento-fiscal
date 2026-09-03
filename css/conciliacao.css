@@ -302,6 +302,19 @@
   flex-shrink: 0;
 }
 
+.conc-origem-tag {
+  display: inline-block;
+  margin-left: 0.15rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 99px;
+  background: var(--badge-saida-estoque-bg);
+  color: var(--badge-saida-estoque-fg);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .conc-responsavel {
   display: flex;
   align-items: center;

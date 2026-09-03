@@ -19,3 +19,11 @@ npm-debug.log*
 *.tmp
 *.bak
 ~$*
+
+# Relatórios reais usados só para teste local (dados fiscais — não versionar)
+WRMVE*.xls
+WRMVE*.xlsx
+csv-sefaz*.csv
+*-ANDRE-20*.xls
+Arquivos de exemplo/
+*sefaz*.csv

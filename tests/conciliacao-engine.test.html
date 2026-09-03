@@ -12,6 +12,7 @@
       #summary { font-weight: 700; margin: 1rem 0; font-size: 1.1rem; }
     </style>
     <script src="../js/conciliacao-engine.js"></script>
+    <script src="../js/conciliacao-parsers.js"></script>
   </head>
   <body>
     <h1>Testes — Motor de Conciliação Fiscal</h1>
@@ -236,6 +237,36 @@
         const saida = baseRow({ nf: '905', tipo: 'SAÍDA', valor: 777.5, emissao: diasAtras(10) })
         const indices = Engine.buildIndices([entrada, saida], [])
         assertEqual('Valor de SAÍDA casa com DEVOLUÇÃO (regra 8)', Engine.conciliarNota(saida, indices), 'DEVOLUÇÃO')
+      })()
+
+      // --- Parsers: detecção Moura x Atak e leitura do Atak ---
+      ;(function () {
+        const Parsers = window.ConciliacaoParsers
+
+        const mouraMatrix = [
+          ['NF', 'Fornecedor', 'Vlr. Nota'],
+          ['123', 'FORN X', '1.000,00'],
+        ]
+        assertEqual('detectSistemaOrigem — Moura', Parsers.detectSistemaOrigem(mouraMatrix), 'moura')
+
+        const atakMatrix = [
+          ['Chave Fato', 'Documento', 'Nome do Cadastro', 'Qtde. Pri.', 'UN', 'Qtde. Aux.', 'UN', 'Valor Total'],
+          ['Tipo Movto.:', 'T132', '(ALMOXARIFADO) NOTA FISCAL DE ENTRADA', '', '', '', '', ''],
+          ['110072038', '111-NEE-000-139439', '90327-ARCELOMITTAL BRASIL', 44.86, '', 0, '', 336.45],
+          ['110072209', '111-NEE-001-108', '90427-AMAZONFRIO', 228.2, '', 0, '', 10216.16],
+          ['Total do Movimento:', 'T132', 273.06, 0, 10552.61, '', '', ''],
+          ['Total Geral:', 273.06, 0, 10552.61, '', '', '', ''],
+        ]
+        assertEqual('detectSistemaOrigem — Atak', Parsers.detectSistemaOrigem(atakMatrix), 'atak')
+
+        const atak = Parsers.sistemaRowsFromMatrix(atakMatrix)
+        assertEqual('Atak — ignora seções e totais (2 notas)', atak.rows.length, 2)
+        assertEqual('Atak — NF vem do último trecho de Documento', atak.rows[0].nf, '139439')
+        assertEqual('Atak — série vem do penúltimo trecho', atak.rows[0].serie, '000')
+        assertEqual('Atak — valor vem de Valor Total', atak.rows[0].valor, 336.45)
+        assertEqual('Atak — fornecedor sem o código', atak.rows[0].fornecedor, 'ARCELOMITTAL BRASIL')
+        assertEqual('Atak — rawMatrix no layout Moura (cabeçalho NF)', atak.rawMatrix[0][1], 'NF')
+        assertEqual('Atak — rawMatrix relido como Moura', Parsers.sistemaRowsFromMatrix(atak.rawMatrix).origem, 'moura')
       })()
 
       // Render

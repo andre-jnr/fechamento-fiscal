@@ -23,9 +23,9 @@ Duas páginas:
   `file://` — os `fetch` de `relatorio-fiscal.xlsx` e a API de clipboard exigem `http://`.
 - **Testes:** abrir `tests/conciliacao-engine.test.html` no navegador — roda sozinho e
   mostra "N/N testes passaram". Não há runner nem `npm test`.
-- **Testes headless** (o engine também exporta via `module.exports`):
+- **Testes headless** (engine e parsers penduram os globals em `global`):
   ```bash
-  node -e 'const E=require("./js/conciliacao-engine.js");let h=require("fs").readFileSync("tests/conciliacao-engine.test.html","utf8");let c=h.split(/<script>/).pop().split("</script>")[0].replace(/const Engine = window\.ConciliacaoEngine/,"const Engine=arguments[0]").replace(/\/\/ Render[\s\S]*$/,"")+"\nreturn results";const r=new Function(c)(E);const f=r.filter(x=>!x.pass);console.log((r.length-f.length)+"/"+r.length);f.forEach(x=>console.log("FAIL",x.name))'
+  node -e 'global.window=global;global.ConciliacaoEngine=require("./js/conciliacao-engine.js");require("./js/conciliacao-parsers.js");let h=require("fs").readFileSync("tests/conciliacao-engine.test.html","utf8");let c=h.split(/<script>/).pop().split("</script>")[0].replace(/\/\/ Render[\s\S]*$/,"")+"\nreturn results";const r=new Function(c)();const f=r.filter(x=>!x.pass);console.log((r.length-f.length)+"/"+r.length);f.forEach(x=>console.log("FAIL",x.name))'
   ```
 - **Deploy:** `git push` na `main` (GitHub Pages, `andre-jnr/fechamento-fiscal`).
 
@@ -37,15 +37,22 @@ o orquestrador:
 | arquivo | global | papel |
 |---|---|---|
 | `js/conciliacao-engine.js` | `ConciliacaoEngine` | **lógica pura, sem DOM.** Normalização, `buildIndices`, `conciliarNota`, filtros, stats, `noteKey`/`overrideId`. Também `module.exports` p/ testes em Node. |
-| `js/conciliacao-parsers.js` | `ConciliacaoParsers` | Lê e valida o CSV da SEFAZ e o XLSX do sistema. `parse*` (a partir de `File`) e `*RowsFromMatrix` (a partir da matriz bruta — usado na importação de `.json`). |
+| `js/conciliacao-parsers.js` | `ConciliacaoParsers` | Lê e valida o CSV da SEFAZ e o XLSX/XLS do sistema. `parse*` (a partir de `File`) e `*RowsFromMatrix` (a partir da matriz bruta — usado na importação de `.json`). O arquivo do sistema tem duas origens: **Moura** (padrão) e **Atak** (filial do CD) — `detectSistemaOrigem` decide pela cara do arquivo e `sistemaRowsFromMatrix` delega para o parser certo. |
 | `js/conciliacao-storage.js` | `ConciliacaoStorage` | IndexedDB (`conciliacao-fiscal`): store `noteOverrides` (o que o usuário alimenta, chave = `Engine.overrideId`) e `importHistory`. |
 | `js/conciliacao-relatorio.js` | `ConciliacaoRelatorio` | Gera o "Relatório Formatado" editando `relatorio-fiscal.xlsx` cirurgicamente como ZIP (ver abaixo). |
 | `js/conciliacao-app.js` | — (IIFE) | Upload, execução da conciliação, dashboard, filtros, tabela, exportações, modal de novidades. Mantém o objeto `state`. |
 
 **Fluxo:** upload SEFAZ (CSV `windows-1252`, separador `;`, lido pelo SheetJS) + sistema
-(XLSX) → `parsers` → `state.sefaz` / `state.sistema` → `Engine.buildIndices` +
+(XLSX/XLS) → `parsers` → `state.sefaz` / `state.sistema` → `Engine.buildIndices` +
 `Engine.conciliarNota` por nota → `state.reconciled` → render. Edições inline de
 Justificativa/Observação persistem no IndexedDB por `overrideId`.
+
+**Sistema Atak (CD):** o nº da NF e a série saem da coluna "Documento"
+(`filial-tipo-serie-numero`, ex.: `111-NEE-000-139439` → série `000`, NF `139439`); o
+valor é a coluna "Valor Total". O parser do Atak devolve um `rawMatrix` já no layout do
+Moura (Entrada/NF/Fornecedor/Desconto/Vlr. Nota/…) para que o "Relatório Formatado" e o
+bundle `.json` funcionem sem tratamento especial. A casagem SEFAZ×sistema é por NF+valor
+(tolerância R$0,02), igual ao Moura. CNPJ do CD: `19234190000644`.
 
 **Exportar/Importar Conciliação:** um único `.json` com `sefaz.rawMatrix` +
 `sistema.rawMatrix` + `notas[]` (id/justificativa/observação). Importar reconstrói as

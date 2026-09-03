@@ -10,6 +10,7 @@
     '19234190000130': 'UNIDADE: PARQUE DEZ',
     '19234190000725': 'UNIDADE: MORADA DO SOL',
     '19234190000482': 'UNIDADE: MONTE DAS OLIVEIRAS',
+    '19234190000644': 'UNIDADE: CD',
   }
 
   // CNPJs do próprio grupo (todas as filiais). Uma nota de SAÍDA com
