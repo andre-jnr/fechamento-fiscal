@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conciliação de Serviços | NFS-e</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="css/conciliacao.css" />
+    <link rel="stylesheet" href="css/servicos.css" />
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  </head>
+  <body class="conc-body">
+    <div class="conc-toasts" id="toasts"></div>
+
+    <div class="conc-modal-overlay" id="servModalOverlay" hidden>
+      <div class="conc-modal" id="servModalBox" role="dialog" aria-modal="true">
+        <div class="serv-modal-head">
+          <strong id="servModalTitle"></strong>
+          <div class="serv-modal-actions" id="servModalActions"></div>
+          <button type="button" class="serv-modal-close" id="servModalClose" aria-label="Fechar">✕</button>
+        </div>
+        <div class="serv-modal-body" id="servModalBody"></div>
+      </div>
+    </div>
+
+    <div class="conc-shell">
+      <header class="conc-header">
+        <div class="conc-title-block">
+          <div class="conc-icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"
+              />
+              <path d="M15 3v4h4" />
+              <path d="M9 12h6M9 15.5h6M9 9h2" />
+              <path d="M10 19.5l1.3 1.3L14 18" />
+            </svg>
+          </div>
+          <div class="conc-title">
+            <h1 id="reportTitle">NOTAS DE SERVIÇO</h1>
+            <div class="conc-unidade">NFS-e emitidas contra o nosso CNPJ</div>
+          </div>
+        </div>
+        <div class="conc-header-actions">
+          <a href="index.html" class="conc-btn">← Início</a>
+          <a href="conciliacao.html" class="conc-btn">Conciliação SEFAZ</a>
+          <a
+            class="conc-btn"
+            href="https://www.nfse.gov.br/EmissorNacional/Login"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Portal NFS-e</a
+          >
+          <button class="conc-btn" id="btnExportAll" disabled>Exportar Excel</button>
+          <button class="conc-btn" id="btnExportFiltered" disabled>Exportar Filtrados</button>
+          <button
+            class="conc-btn"
+            id="btnExportBundle"
+            disabled
+            title="Baixa um único arquivo .json com as NFS-e, o arquivo do sistema e tudo o que foi preenchido — para enviar por e-mail"
+          >
+            Exportar Dados
+          </button>
+          <button
+            class="conc-btn"
+            id="btnImportBundle"
+            title="Abre um arquivo .json exportado e reconstrói a conciliação inteira"
+          >
+            Importar Dados
+          </button>
+          <input
+            type="file"
+            id="inputImportBundle"
+            accept=".json,application/json"
+            hidden
+          />
+        </div>
+      </header>
+
+      <section class="conc-upload-grid">
+        <div class="conc-upload-card" id="cardNfse">
+          <div class="conc-upload-head">
+            <div class="conc-upload-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"
+                />
+                <path d="M14 3v5h5" />
+              </svg>
+            </div>
+            <div>
+              <strong>NFS-e</strong>
+              <span>Lote de notas de serviço (.zip do portal ou .xml)</span>
+            </div>
+          </div>
+          <label class="conc-upload-dropzone" for="inputNfse" id="dropNfse">
+            Arraste o .zip (ou os .xml) aqui ou
+            <strong style="color: var(--green-main)">selecione o arquivo</strong>
+          </label>
+          <input
+            class="conc-upload-file"
+            type="file"
+            id="inputNfse"
+            accept=".zip,.xml"
+            multiple
+          />
+          <div class="conc-upload-status" id="statusNfse"></div>
+        </div>
+
+        <div class="conc-upload-card" id="cardSistema">
+          <div class="conc-upload-head">
+            <div class="conc-upload-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <ellipse cx="12" cy="5" rx="8" ry="3" />
+                <path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" />
+                <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
+              </svg>
+            </div>
+            <div>
+              <strong>SISTEMA</strong>
+              <span>Entradas com tipo "serviço" lançadas no sistema (XLSX/XLS)</span>
+            </div>
+          </div>
+          <label
+            class="conc-upload-dropzone"
+            for="inputSistema"
+            id="dropSistema"
+          >
+            Arraste o arquivo Excel aqui ou
+            <strong style="color: var(--green-main)">selecione o arquivo</strong>
+          </label>
+          <input
+            class="conc-upload-file"
+            type="file"
+            id="inputSistema"
+            accept=".xlsx,.xls"
+          />
+          <div class="conc-upload-status" id="statusSistema"></div>
+        </div>
+      </section>
+
+      <div class="conc-conciliar-row">
+        <div class="conc-responsavel" style="max-width: 320px">
+          <label
+            for="inputResponsavel"
+            style="font-size: 0.78rem; color: var(--gray)"
+            >Responsável:</label
+          >
+          <input type="text" id="inputResponsavel" placeholder="Seu nome" />
+        </div>
+        <button class="conc-btn conc-btn--primary" id="btnConciliar" disabled>
+          CONCILIAR NOTAS
+        </button>
+        <div class="conc-progress" id="progressWrap">
+          <div class="conc-progress-track">
+            <div class="conc-progress-bar" id="progressBar"></div>
+          </div>
+          <div class="conc-progress-label" id="progressLabel">
+            Processando NFS-e...
+          </div>
+        </div>
+      </div>
+
+      <section
+        class="conc-stats-grid"
+        id="statsGrid"
+        style="display: none"
+      ></section>
+
+      <section class="conc-filters" id="filtersBar" style="display: none">
+        <div class="conc-search">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="text"
+            id="filterBusca"
+            placeholder="Pesquisar nº, prestador, CNPJ ou descrição..."
+          />
+        </div>
+        <div class="conc-multiselect" id="filterStatus"></div>
+        <div class="conc-multiselect" id="filterPrestador"></div>
+        <div class="conc-multiselect" id="filterCnpj"></div>
+        <div class="conc-multiselect" id="filterMunicipio"></div>
+        <div class="conc-multiselect" id="filterCodServico"></div>
+        <div class="conc-multiselect" id="filterJustificativa"></div>
+        <select id="filterIss" title="ISS">
+          <option value="">ISS: todas</option>
+          <option value="com">Com ISS</option>
+          <option value="retido">ISS retido</option>
+          <option value="nao-retido">ISS não retido</option>
+          <option value="sem">Sem ISS</option>
+        </select>
+        <input type="date" id="filterDataInicio" title="Emissão de" />
+        <input type="date" id="filterDataFim" title="Emissão até" />
+        <span class="conc-filters-clear" id="btnClearFilters">Limpar filtros</span>
+      </section>
+
+      <section class="conc-table-wrap" id="tableWrap" style="display: none">
+        <div class="conc-table-scroll">
+          <table class="conc-table">
+            <thead>
+              <tr>
+                <th class="col-chave-h" title="Abrir a DANFSe da nota">
+                  DANFSe
+                </th>
+                <th data-sort="numero">Nº <span class="sort-icon">↕</span></th>
+                <th data-sort="serie">Série <span class="sort-icon">↕</span></th>
+                <th data-sort="emissao">
+                  Emissão <span class="sort-icon">↕</span>
+                </th>
+                <th data-sort="prestadorCnpjFormatado">
+                  CNPJ Prestador <span class="sort-icon">↕</span>
+                </th>
+                <th data-sort="prestador">
+                  Prestador <span class="sort-icon">↕</span>
+                </th>
+                <th data-sort="municipio">
+                  Município <span class="sort-icon">↕</span>
+                </th>
+                <th data-sort="codServico">
+                  Cód. Serviço <span class="sort-icon">↕</span>
+                </th>
+                <th data-sort="valorServico">
+                  Valor <span class="sort-icon">↕</span>
+                </th>
+                <th data-sort="iss">ISS <span class="sort-icon">↕</span></th>
+                <th data-sort="status">
+                  Status <span class="sort-icon">↕</span>
+                </th>
+                <th>Descrição</th>
+                <th>Justificativa</th>
+                <th>Observação</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="conc-pagination">
+          <div id="paginationInfo"></div>
+          <div class="conc-pagination-controls">
+            <select id="pageSize">
+              <option value="50">50/página</option>
+              <option value="100" selected>100/página</option>
+              <option value="250">250/página</option>
+              <option value="500">500/página</option>
+            </select>
+            <button id="btnPrevPage">‹ Anterior</button>
+            <span id="pageIndicator" style="font-size: 0.8rem"></span>
+            <button id="btnNextPage">Próxima ›</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="conc-empty-state" id="emptyState">
+        Importe o lote de NFS-e e o arquivo do sistema para iniciar a
+        conciliação.
+      </div>
+    </div>
+
+    <script src="js/conciliacao-engine.js"></script>
+    <script src="js/conciliacao-parsers.js"></script>
+    <script src="js/servicos-engine.js"></script>
+    <script src="js/servicos-parsers.js"></script>
+    <script src="js/servicos-danfse.js"></script>
+    <script src="js/servicos-storage.js"></script>
+    <script src="js/servicos-app.js"></script>
+  </body>
+</html>

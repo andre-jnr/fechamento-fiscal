@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Testes — Conciliação de Serviços (NFS-e)</title>
+    <style>
+      body { font-family: 'Segoe UI', sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+      h1 { color: #1d6f42; }
+      .case { padding: 0.6rem 0.9rem; border-radius: 8px; margin-bottom: 0.4rem; font-size: 0.9rem; }
+      .pass { background: #e6f4ec; color: #1d6f42; }
+      .fail { background: #fdecec; color: #b42318; }
+      #summary { font-weight: 700; margin: 1rem 0; font-size: 1.1rem; }
+    </style>
+    <script src="../js/conciliacao-engine.js"></script>
+    <script src="../js/conciliacao-parsers.js"></script>
+    <script src="../js/servicos-engine.js"></script>
+    <script src="../js/servicos-parsers.js"></script>
+  </head>
+  <body>
+    <h1>Testes — Conciliação de Serviços (NFS-e)</h1>
+    <div id="summary">Executando...</div>
+    <div id="results"></div>
+
+    <script>
+      const Base = window.ConciliacaoEngine
+      const Engine = window.ServicosEngine
+      const Parsers = window.ServicosParsers
+      const results = []
+
+      function assertEqual(name, actual, expected) {
+        results.push({ name, pass: actual === expected, actual, expected })
+      }
+      function assertTrue(name, cond) {
+        results.push({ name, pass: !!cond, actual: !!cond, expected: true })
+      }
+
+      function diasAtras(n) {
+        const d = new Date()
+        d.setDate(d.getDate() - n)
+        return Base.stripTime(d)
+      }
+
+      function nfse(overrides) {
+        return Object.assign(
+          {
+            chave: '',
+            numero: '100',
+            serie: '1',
+            emissao: diasAtras(20),
+            emissaoRaw: '',
+            prestadorCnpj: '31315744000129',
+            prestadorCnpjFormatado: '31.315.744/0001-29',
+            prestador: 'FORNECEDOR TESTE LTDA',
+            municipio: 'Manaus',
+            uf: 'AM',
+            codServico: '140101',
+            descricao: '',
+            valorServico: 250,
+            valorLiquido: 250,
+            iss: 0,
+            issAliquota: 0,
+            issRetido: false,
+            temIss: false,
+            cStat: '100',
+            cancelada: false,
+          },
+          overrides || {}
+        )
+      }
+
+      const HOJE = new Date()
+
+      // 1 — NFS-e casa por nº + valor -> LANÇADA
+      ;(function () {
+        const row = nfse({ numero: '10', valorServico: 250 })
+        const idx = Engine.buildIndices([{ nf: '000000010', valor: 250, fornecedor: 'OUTRO' }])
+        assertEqual('Casa por nº + valor', Engine.conciliar(row, idx, 'NÃO PRECISA', HOJE), 'LANÇADA')
+      })()
+
+      // 2 — nº diferente mas valor + prestador batem -> LANÇADA (fallback)
+      ;(function () {
+        const row = nfse({ numero: '73955', valorServico: 1324.94, prestador: 'RFID MOURA LTDA' })
+        const idx = Engine.buildIndices([{ nf: '000073280', valor: 1324.94, fornecedor: 'RFID MOURA LTDA' }])
+        assertEqual('Fallback por valor + nome do prestador', Engine.conciliar(row, idx, 'NÃO PRECISA', HOJE), 'LANÇADA')
+      })()
+
+      // 3 — valor do sistema bate com o líquido (nota com retenção) -> LANÇADA
+      ;(function () {
+        const row = nfse({ numero: '490', valorServico: 10805.8, valorLiquido: 9006.63 })
+        const idx = Engine.buildIndices([{ nf: '000000490', valor: 9006.63, fornecedor: 'X' }])
+        assertEqual('Casa pelo valor líquido', Engine.conciliar(row, idx, 'NÃO PRECISA', HOJE), 'LANÇADA')
+      })()
+
+      // 4 — não encontrada e antiga -> NÃO LANÇADA
+      ;(function () {
+        const row = nfse({ numero: '999', valorServico: 500, emissao: diasAtras(15) })
+        assertEqual('Não encontrada e antiga', Engine.conciliar(row, Engine.buildIndices([]), 'NÃO PRECISA', HOJE), 'NÃO LANÇADA')
+      })()
+
+      // 5 — não encontrada mas recente -> A LANÇAR
+      ;(function () {
+        const row = nfse({ numero: '998', valorServico: 500, emissao: diasAtras(1) })
+        assertEqual('Não encontrada mas recente', Engine.conciliar(row, Engine.buildIndices([]), 'NÃO PRECISA', HOJE), 'A LANÇAR')
+      })()
+
+      // 6 — veio da pasta Canceladas -> CANCELADA (mesmo casando no sistema)
+      ;(function () {
+        const row = nfse({ numero: '10', valorServico: 250, cancelada: true })
+        const idx = Engine.buildIndices([{ nf: '000000010', valor: 250, fornecedor: 'X' }])
+        assertEqual('Cancelada tem prioridade', Engine.conciliar(row, idx, 'NÃO PRECISA', HOJE), 'CANCELADA')
+      })()
+
+      // 7 — justificativa manual sobrescreve
+      ;(function () {
+        const row = nfse({ numero: '997', valorServico: 500, emissao: diasAtras(15) })
+        const idx = Engine.buildIndices([])
+        assertEqual('Justificativa "JÁ LANÇADA"', Engine.conciliar(row, idx, 'JÁ LANÇADA', HOJE), 'LANÇADA')
+        assertEqual('Justificativa "NÃO LANÇAR" -> DISPENSADA', Engine.conciliar(row, idx, 'NÃO LANÇAR', HOJE), 'DISPENSADA')
+        assertEqual('Justificativa "NÃO PRECISA" não altera', Engine.conciliar(row, idx, 'NÃO PRECISA', HOJE), 'NÃO LANÇADA')
+      })()
+
+      // 8 — diferença acima de R$0,02 não casa
+      ;(function () {
+        const row = nfse({ numero: '20', valorServico: 100 })
+        const idx = Engine.buildIndices([{ nf: '20', valor: 100.05, fornecedor: 'X' }])
+        assertEqual('Diferença acima da tolerância', Engine.conciliar(row, idx, 'NÃO PRECISA', HOJE), 'NÃO LANÇADA')
+      })()
+
+      // 9 — nomesCasam
+      assertTrue('nomesCasam — Auticom com sufixos diferentes', Engine.nomesCasam(
+        'AUTICOM SERVICOS E COMERCIO DE TECNOLOGIA LTDA',
+        'AUTICOM SERVICOS E COMERCIO DE TECNOLOGIA DA INFORMACAO LTDA'
+      ))
+      assertTrue('nomesCasam — nome com CNPJ embutido', Engine.nomesCasam(
+        'JOSÉ FERREIRA FONTELES FILHO',
+        '33.019.591 JOSE FERREIRA FONTELES FILHO'
+      ))
+      assertTrue('nomesCasam — empresas distintas não casam', !Engine.nomesCasam('RFID MOURA LTDA', 'TICKET SERVICOS SA'))
+
+      // 10 — overrideId usa a chave de 50 dígitos
+      ;(function () {
+        const chave = '1'.repeat(50)
+        assertEqual('overrideId usa a chave da NFS-e', Engine.overrideId(nfse({ chave })), chave)
+        const sem = nfse({ chave: '' })
+        assertTrue('overrideId cai para chave composta', Engine.overrideId(sem).indexOf('|') !== -1)
+      })()
+
+      // 11 — computeStats
+      ;(function () {
+        const idx = Engine.buildIndices([{ nf: '000000010', valor: 250, fornecedor: 'X' }])
+        const rows = [
+          nfse({ numero: '10', valorServico: 250, iss: 4.5, temIss: true }),
+          nfse({ numero: '999', valorServico: 500, emissao: diasAtras(15) }),
+          nfse({ numero: '998', valorServico: 700, iss: 10, temIss: true, issRetido: true, emissao: diasAtras(15) }),
+        ].map((r) => Object.assign(r, { status: Engine.conciliar(r, idx, 'NÃO PRECISA', HOJE) }))
+        const s = Engine.computeStats(rows)
+        assertEqual('stats — total', s.total, 3)
+        assertEqual('stats — lançadas', s.porStatus['LANÇADA'].qtd, 1)
+        assertEqual('stats — não lançadas', s.porStatus['NÃO LANÇADA'].qtd, 2)
+        assertEqual('stats — com ISS', s.comIss, 2)
+        assertEqual('stats — ISS retido', s.issRetido, 1)
+        assertEqual('stats — valor ISS', s.valorIss, 14.5)
+      })()
+
+      // 12 — nfseRowsFromPlain reidrata datas e flags
+      ;(function () {
+        const [row] = Parsers.nfseRowsFromPlain([
+          { numero: '10', emissao: '2026-08-06', prestadorCnpj: '31315744000129', valorServico: '250,00', iss: '4,50' },
+        ])
+        assertTrue('nfseRowsFromPlain — emissão vira Date', row.emissao instanceof Date)
+        assertEqual('nfseRowsFromPlain — valor normalizado', row.valorServico, 250)
+        assertTrue('nfseRowsFromPlain — temIss derivado', row.temIss === true)
+      })()
+
+      // Render
+      const passCount = results.filter((r) => r.pass).length
+      document.getElementById('summary').textContent = `${passCount}/${results.length} testes passaram`
+      document.getElementById('summary').style.color = passCount === results.length ? '#1d6f42' : '#b42318'
+      const container = document.getElementById('results')
+      for (const r of results) {
+        const div = document.createElement('div')
+        div.className = 'case ' + (r.pass ? 'pass' : 'fail')
+        div.textContent = r.pass ? `✓ ${r.name}` : `✗ ${r.name} — esperado "${r.expected}", obtido "${r.actual}"`
+        container.appendChild(div)
+      }
+    </script>
+  </body>
+</html>

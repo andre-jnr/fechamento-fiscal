@@ -1,0 +1,154 @@
+/* Ajustes específicos da Conciliação de Notas de Serviço (NFS-e).
+   O grosso do visual vem de css/conciliacao.css. */
+
+.serv-iss-tag {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 99px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  background: var(--badge-falta-chegar-bg);
+  color: var(--badge-falta-chegar-fg);
+}
+
+.serv-iss-tag--retido {
+  background: var(--badge-rejeitada-bg);
+  color: var(--badge-rejeitada-fg);
+}
+
+.conc-table td.col-iss-zero {
+  color: var(--gray);
+}
+
+.conc-table tr.serv-row--cancelada td {
+  opacity: 0.62;
+  text-decoration: line-through;
+}
+
+.conc-table tr.serv-row--cancelada td.col-observacao,
+.conc-table tr.serv-row--cancelada td .badge {
+  text-decoration: none;
+}
+
+.conc-table td.col-descricao {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.conc-filters select#filterIss {
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: var(--dark);
+  background: var(--surface-muted);
+}
+
+/* ---------- Descrição clicável ---------- */
+
+.serv-desc-link {
+  display: block;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--dark);
+  text-align: left;
+  cursor: pointer;
+}
+
+.serv-desc-link:hover {
+  color: var(--green-main);
+  text-decoration: underline;
+}
+
+/* ---------- Botão da DANFSe ---------- */
+
+.serv-danfse-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ---------- Modal (DANFSe / descrição) ---------- */
+
+.conc-modal--danfse {
+  max-width: 980px;
+  padding: 1rem 1rem 1.25rem;
+}
+
+.serv-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.serv-modal-head strong {
+  font-size: 1rem;
+  color: var(--dark);
+}
+
+.serv-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.serv-modal-actions .conc-btn {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+.serv-modal-close {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  color: var(--gray);
+  flex-shrink: 0;
+}
+
+.serv-modal-close:hover {
+  color: var(--dark);
+  border-color: var(--green-main);
+}
+
+.serv-danfse-frame {
+  width: 100%;
+  height: 74vh;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.serv-desc-meta {
+  font-size: 0.8rem;
+  color: var(--gray);
+  margin-bottom: 0.6rem;
+}
+
+.serv-desc-full {
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-size: 0.88rem;
+  color: var(--dark);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}

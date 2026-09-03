@@ -10,19 +10,25 @@ sem dependências instaláveis — só HTML/CSS/JS servido como arquivo. Bibliot
 (SheetJS, JSZip, highlight.js) vêm de CDN. UI, comentários e mensagens de commit em
 **pt-BR** (Conventional Commits; o histórico commita direto na `main`, que é publicada).
 
-Duas páginas:
+Três páginas:
 
 - `index.html` — landing: baixa o modelo `relatorio-fiscal.xlsx`, baixa `controle-nf.xlsx`
   (planilha admin) e exibe a fórmula principal da conciliação para copiar no Excel.
-- `conciliacao.html` — a aplicação web de conciliação.
+- `conciliacao.html` — a aplicação web de conciliação (notas da SEFAZ × ERP).
+- `conciliacao-servicos.html` — conciliação das **NFS-e** (notas de serviço) emitidas
+  contra o nosso CNPJ × entradas de serviço lançadas no ERP.
+
+Pasta `arquivos_exemplo/` guarda arquivos reais só para teste local — **inteira no
+`.gitignore`**, não versionar nada dela.
 
 ## Rodar e testar
 
 - **Servir:** abrir `index.html` / `conciliacao.html` com o Live Server do VS Code
   (porta 5501, ver `.vscode/settings.json`) ou qualquer servidor estático. Não abra via
   `file://` — os `fetch` de `relatorio-fiscal.xlsx` e a API de clipboard exigem `http://`.
-- **Testes:** abrir `tests/conciliacao-engine.test.html` no navegador — roda sozinho e
-  mostra "N/N testes passaram". Não há runner nem `npm test`.
+- **Testes:** abrir `tests/conciliacao-engine.test.html` e
+  `tests/servicos-engine.test.html` no navegador — cada um roda sozinho e mostra
+  "N/N testes passaram". Não há runner nem `npm test`.
 - **Testes headless** (engine e parsers penduram os globals em `global`):
   ```bash
   node -e 'global.window=global;global.ConciliacaoEngine=require("./js/conciliacao-engine.js");require("./js/conciliacao-parsers.js");let h=require("fs").readFileSync("tests/conciliacao-engine.test.html","utf8");let c=h.split(/<script>/).pop().split("</script>")[0].replace(/\/\/ Render[\s\S]*$/,"")+"\nreturn results";const r=new Function(c)();const f=r.filter(x=>!x.pass);console.log((r.length-f.length)+"/"+r.length);f.forEach(x=>console.log("FAIL",x.name))'
@@ -58,6 +64,41 @@ bundle `.json` funcionem sem tratamento especial. A casagem SEFAZ×sistema é po
 `sistema.rawMatrix` + `notas[]` (id/justificativa/observação). Importar reconstrói as
 linhas via `*RowsFromMatrix`, grava os overrides e re-concilia — reproduz o relatório de
 quem enviou sem os arquivos originais.
+
+## Arquitetura de `conciliacao-servicos.html`
+
+Mesma pegada de `conciliacao.html` (globals em `window`, sem build). Reaproveita
+`conciliacao-engine.js` (normalização) e `conciliacao-parsers.js` (parser do XLSX do
+sistema, que é o mesmo layout Moura — Entrada/NF/Fornecedor/Vlr. Nota/Data Emissão/Chave).
+
+| arquivo | global | papel |
+|---|---|---|
+| `js/servicos-engine.js` | `ServicosEngine` | Regra de casagem NFS-e × sistema, filtros, stats, `overrideId`. `module.exports` p/ testes. |
+| `js/servicos-parsers.js` | `ServicosParsers` | Lê o **lote de NFS-e**: um `.zip` (JSZip) do portal nacional ou `.xml` soltos. `nfseRowFromXmlString` extrai os campos do layout nacional (`http://www.sped.fazenda.gov.br/nfse`) via `DOMParser` e guarda o XML (sem `<Signature>`) em `row.xml`. `nfseRowsFromPlain` reidrata as linhas na importação de `.json`. |
+| `js/servicos-danfse.js` | `ServicosDanfse` | Monta a **DANFSe** a partir do `row.xml` como um HTML autossuficiente (`buildHtml`). Dois leiautes: `nacional` (réplica da DANFSe v2.0, para notas de AM) e `municipal` (estilo NFS-e paulistana, para SP / fora do estado) — `pickLayout` decide pela UF do prestador. |
+| `js/servicos-storage.js` | `ServicosStorage` | IndexedDB `conciliacao-servicos` (store `noteOverrides`, chave = `ServicosEngine.overrideId`). |
+| `js/servicos-app.js` | — (IIFE) | Upload, conciliação, dashboard, filtros, tabela, exportações, bundle `.json`, modal da DANFSe / descrição completa. |
+
+**Identidade da NFS-e:** `overrideId` = a **chave de acesso da NFS-e (50 dígitos)**, do
+atributo `infNFSe/@Id` sem o prefixo `NFS`; fallback para `prestadorCnpj|nº|série|valor|emissão`.
+
+**Regra de status** (`ServicosEngine.conciliar`): justificativa manual sobrescreve →
+veio da pasta `Canceladas/` do lote → `CANCELADA`; casa com um lançamento do sistema
+(nº+valor **ou** valor+nome do prestador, tolerância R$0,02, comparando contra `vServ`
+e `vLiq`) → `LANÇADA`; emitida nos últimos 2 dias → `A LANÇAR`; senão `NÃO LANÇADA`.
+O número da NFS-e (`nNFSe`) é comparado com a coluna `NF` do sistema; a casagem por
+valor+prestador cobre os casos em que o ERP renumera a nota.
+
+**ISS:** `nfseRowFromXmlString` extrai `valores/vISSQN` (valor), `pAliqAplic`/`pAliq`
+(alíquota) e `tribMun/tpRetISSQN` (`1` = retido pelo tomador). A coluna ISS mostra o
+valor + a tag `ISS`/`RETIDO`; o filtro tem com ISS / ISS retido / **ISS não retido**
+(o caso da NFS 10 do Auticom) / sem ISS, e há card no dashboard.
+
+**DANFSe / descrição:** a 1ª coluna da tabela é um botão que abre a DANFSe
+(`ServicosDanfse.buildHtml`) num modal com `<iframe srcdoc>` + botões Imprimir / Abrir
+em nova aba. O texto da coluna Descrição é clicável e abre a descrição completa
+(`xDescServ`) num modal. O `row.xml` viaja no bundle `.json` para a DANFSe funcionar
+após importação.
 
 ## Regra de conciliação — três fontes que precisam ficar em sincronia
 
