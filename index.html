@@ -3,150 +3,206 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Conciliação Fiscal | Download da Planilha</title>
+    <title>Relatório de fechamento fiscal</title>
+    <meta
+      name="description"
+      content="Ferramentas do fechamento fiscal: conciliação das notas da SEFAZ, das notas de serviço (NFS-e) e o modelo de planilha para fechar o mês."
+    />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="css/inicio.css" />
     <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
-    />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   </head>
   <body>
-    <a href="controle-nf.xlsx" class="admin-btn">Planilha Admin</a>
+    <a href="controle-nf.xlsx" class="lp-admin">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 2 4 6v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6z" />
+      </svg>
+      Planilha administrativa
+    </a>
 
-    <header>
-      <h1>Planilha de Conciliação Fiscal</h1>
-      <p>
-        Ferramenta desenvolvida para auxiliar no
-        <strong>fechamento fiscal</strong>, conciliando notas fiscais lançadas
-        no sistema com as notas emitidas na <strong>SEFAZ</strong>. Sempre com
-        fórmulas atualizadas.
-      </p>
-
-      <div class="download-area">
-        <a href="conciliacao.html" class="download-btn">
-          <span class="icon">🧾</span>
-          <span>Abrir Conciliação Fiscal (Web)</span>
-        </a>
-        <a href="conciliacao-servicos.html" class="download-btn">
-          <span class="icon">🧰</span>
-          <span>Conciliação de Serviços (NFS-e)</span>
-        </a>
-        <a href="relatorio-fiscal.xlsx" class="download-btn" download>
-          <span class="icon">📊⬇️</span>
-          <span>Baixar Planilha (Excel)</span>
-        </a>
+    <main class="lp">
+      <div class="lp-hero">
+        <span class="lp-eyebrow">Fechamento fiscal · Frigorífico Amazonas</span>
+        <h1 class="lp-title">Relatório de fechamento <em>fiscal</em></h1>
+        <p class="lp-lede">
+          Concilie as notas lançadas no ERP com as emitidas contra o CNPJ e
+          feche o mês — pela web ou pela planilha.
+        </p>
       </div>
-    </header>
 
-    <main>
-      <section>
-        <h2>O que esta planilha faz?</h2>
-        <p>
-          A planilha realiza a conciliação semiautomática entre as notas fiscais
-          lançadas no ERP e as notas emitidas contra o CNPJ consultadas na
-          SEFAZ, facilitando a identificação de: notas faltantes, devoluções,
-          notas para rejeitar e possíveis erros de lançamento.
-        </p>
-      </section>
+      <nav class="lp-cards">
+        <a class="lp-card" href="conciliacao.html" style="--i: 0">
+          <span class="lp-card-hud" aria-hidden="true"></span>
+          <span class="lp-card-index" aria-hidden="true">01</span>
+          <span class="lp-card-icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+              <path d="M14 3v5h5" />
+              <path d="M9 13.5l2 2 4-4.5" />
+            </svg>
+          </span>
+          <span class="lp-card-body">
+            <span class="lp-card-title"
+              >Relatório de fechamento de notas fiscais</span
+            >
+            <span class="lp-card-sub"
+              >Conciliação das notas da SEFAZ com o que foi lançado no sistema —
+              status por nota, dashboard e exportações.</span
+            >
+          </span>
+          <span class="lp-card-cta">
+            Abrir relatório
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </span>
+        </a>
 
-      <section>
-        <h2>Fórmula disponível</h2>
-        <p>
-          Abaixo está a fórmula principal utilizada no projeto, Você pode copiar
-          e colar diretamente no Excel e desenvolver sua própria planilha.
-        </p>
+        <a class="lp-card" href="conciliacao-servicos.html" style="--i: 1">
+          <span class="lp-card-hud" aria-hidden="true"></span>
+          <span class="lp-card-index" aria-hidden="true">02</span>
+          <span class="lp-card-icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="3.2" />
+              <path
+                d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.9 19.3a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.7 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.7 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.7h.06A1.7 1.7 0 0 0 10 3.14V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.7a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.3 9v.06A1.7 1.7 0 0 0 21 10h.14a2 2 0 1 1 0 4H21a1.7 1.7 0 0 0-1.56 1z"
+              />
+            </svg>
+          </span>
+          <span class="lp-card-body">
+            <span class="lp-card-title"
+              >Relatório de notas fiscais de serviço</span
+            >
+            <span class="lp-card-sub"
+              >Concilie as NFS-e emitidas contra o CNPJ com as entradas de
+              serviço do sistema. Abre a DANFSe direto do XML.</span
+            >
+          </span>
+          <span class="lp-card-cta">
+            Abrir relatório
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </span>
+        </a>
 
-        <div class="formula-box">
-          <button class="copy-btn" onclick="copyFormula(this)">Copiar</button>
-
-          <pre><code class="language-vbnet">=SE([@NF] = "";
-    "";
-
-=SE([@NF] = "";
-"";
-
-SE([@TIPO] = "ENTRADA";
-PROCV([@NF]; TABELA_ENTRADAS[[#Tudo]; [NF]:[RELAÇÃO]]; 10; FALSO);
-
-SEERRO(
-    SE(
-        PROCX(1;(tabela_compras[NF]=[@NF])*(ABS(tabela_compras[Vlr. Nota]-[@VALOR])<=0,02);tabela_compras[NF]);
-        "RECEBIDA"
-    );
-
-    SE([@SITUACAO] = "CANCELADA";
-        "CANCELADA";
-
-        SE(SEFAZ!V2 = "S";
-            "REJEITADA";
-
-            SE([@JUSTIFICATIVA] <> "NÃO PRECISA";
-                [@JUSTIFICATIVA];
-
-                SE([@CFOP] = 5926;
-                    "DESAGREGAÇÃO";
-
-                SE(E([@CFOP] = 5949; OU([@[CNPJ EMISSOR]] = 19234190000725; [@[CNPJ EMISSOR]] = 19234190000130; [@[CNPJ EMISSOR]] = 19234190000300; [@[CNPJ EMISSOR]] = 19234190000482; [@[CNPJ EMISSOR]] = 19234190000644));
-                    "SAÍDA DE ESTOQUE";
-
-                    SEERRO(
-                        SE(
-                            PROCV([@VALOR]; TABELA_ENTRADAS[VALOR]; 1; FALSO);
-                            "DEVOLUÇÃO"
-                        );
-
-                        SE([@CFOP] = 5927;
-                            "DESCARTE";
-
-                            SE([@UF] <> "AM";
-                                "EM TRANSPORTE";
-
-                                SE([@EMISSAO] >= HOJE()-2;
-                                    "FALTA CHEGAR";
-                                    "NÃO LANÇADA"
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-        )
-    )
-)
-
-)
-)
-)
-)</code></pre>
-        </div>
-      </section>
+        <a class="lp-card lp-card--primary" href="relatorio-fiscal.xlsx" download style="--i: 2">
+          <span class="lp-card-hud" aria-hidden="true"></span>
+          <span class="lp-card-index" aria-hidden="true">03</span>
+          <span class="lp-card-icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="4" y="3" width="16" height="10" rx="2" />
+              <path d="M4 7.5h16M9.5 3v10M14.5 3v10" />
+              <path d="M12 15v6M8.5 17.5l3.5 3.5 3.5-3.5" />
+            </svg>
+          </span>
+          <span class="lp-card-body">
+            <span class="lp-card-title"
+              >Baixar planilha para fechamento de notas fiscais</span
+            >
+            <span class="lp-card-sub"
+              >Modelo Excel <b>relatorio-fiscal.xlsx</b> com as fórmulas e o
+              dashboard prontos para fechar o mês offline.</span
+            >
+          </span>
+          <span class="lp-card-cta">
+            Baixar planilha
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 4v12M6 10l6 6 6-6M5 20h14" />
+            </svg>
+          </span>
+        </a>
+      </nav>
     </main>
 
-    <footer>
-      © 2025 • Conciliação Fiscal • Desenvolvido para apoio ao fechamento fiscal
-      • André Júnior
+    <footer class="lp-foot">
+      © 2026 · Fechamento Fiscal · Desenvolvido para apoio ao fechamento fiscal ·
+      André Júnior
     </footer>
 
     <script>
-      hljs.highlightAll()
-
-      function copyFormula(button) {
-        const formula = button.parentElement.innerText
-          .replace('Copiar', '')
-          .trim()
-        navigator.clipboard.writeText(formula)
-        button.innerText = 'Copiado!'
-        setTimeout(() => (button.innerText = 'Copiar'), 1500)
-      }
+      ;(function () {
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        var cards = document.querySelectorAll('.lp-card')
+        cards.forEach(function (card) {
+          card.addEventListener('pointermove', function (e) {
+            var r = card.getBoundingClientRect()
+            var px = (e.clientX - r.left) / r.width
+            var py = (e.clientY - r.top) / r.height
+            card.style.setProperty('--mx', (px * 100).toFixed(1) + '%')
+            card.style.setProperty('--my', (py * 100).toFixed(1) + '%')
+            if (!reduce) {
+              card.style.setProperty('--ry', ((px - 0.5) * 8).toFixed(2) + 'deg')
+              card.style.setProperty('--rx', ((0.5 - py) * 8).toFixed(2) + 'deg')
+            }
+          })
+          card.addEventListener('pointerleave', function () {
+            card.style.setProperty('--mx', '50%')
+            card.style.setProperty('--my', '50%')
+            card.style.setProperty('--rx', '0deg')
+            card.style.setProperty('--ry', '0deg')
+          })
+        })
+      })()
     </script>
   </body>
 </html>
