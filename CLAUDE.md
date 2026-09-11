@@ -12,11 +12,15 @@ sem dependências instaláveis — só HTML/CSS/JS servido como arquivo. Bibliot
 
 Três páginas:
 
-- `index.html` — landing: baixa o modelo `relatorio-fiscal.xlsx`, baixa `controle-nf.xlsx`
-  (planilha admin) e exibe a fórmula principal da conciliação para copiar no Excel.
+- `index.html` — landing: baixa o modelo `assets/relatorio-fiscal.xlsx`, baixa
+  `controle-nf.xlsx` (planilha admin) e exibe a fórmula principal da conciliação para
+  copiar no Excel.
 - `conciliacao.html` — a aplicação web de conciliação (notas da SEFAZ × ERP).
 - `conciliacao-servicos.html` — conciliação das **NFS-e** (notas de serviço) emitidas
   contra o nosso CNPJ × entradas de serviço lançadas no ERP.
+
+Pasta `assets/` guarda os dois modelos `.xlsx` usados pelos "Gerar Relatório Formatado"
+(`relatorio-fiscal.xlsx` e `Fechamento_NFSe_Mensal.xlsx`) — ver seções específicas abaixo.
 
 Pasta `arquivos_exemplo/` guarda arquivos reais só para teste local — **inteira no
 `.gitignore`**, não versionar nada dela.
@@ -25,7 +29,8 @@ Pasta `arquivos_exemplo/` guarda arquivos reais só para teste local — **intei
 
 - **Servir:** abrir `index.html` / `conciliacao.html` com o Live Server do VS Code
   (porta 5501, ver `.vscode/settings.json`) ou qualquer servidor estático. Não abra via
-  `file://` — os `fetch` de `relatorio-fiscal.xlsx` e a API de clipboard exigem `http://`.
+  `file://` — os `fetch` dos modelos em `assets/*.xlsx` e a API de clipboard exigem
+  `http://`.
 - **Testes:** abrir `tests/conciliacao-engine.test.html` e
   `tests/servicos-engine.test.html` no navegador — cada um roda sozinho e mostra
   "N/N testes passaram". Não há runner nem `npm test`.
@@ -45,7 +50,7 @@ o orquestrador:
 | `js/conciliacao-engine.js` | `ConciliacaoEngine` | **lógica pura, sem DOM.** Normalização, `buildIndices`, `conciliarNota`, filtros, stats, `noteKey`/`overrideId`. Também `module.exports` p/ testes em Node. |
 | `js/conciliacao-parsers.js` | `ConciliacaoParsers` | Lê e valida o CSV da SEFAZ e o XLSX/XLS do sistema. `parse*` (a partir de `File`) e `*RowsFromMatrix` (a partir da matriz bruta — usado na importação de `.json`). O arquivo do sistema tem duas origens: **Moura** (padrão) e **Atak** (filial do CD) — `detectSistemaOrigem` decide pela cara do arquivo e `sistemaRowsFromMatrix` delega para o parser certo. |
 | `js/conciliacao-storage.js` | `ConciliacaoStorage` | IndexedDB (`conciliacao-fiscal`): store `noteOverrides` (o que o usuário alimenta, chave = `Engine.overrideId`) e `importHistory`. |
-| `js/conciliacao-relatorio.js` | `ConciliacaoRelatorio` | Gera o "Relatório Formatado" editando `relatorio-fiscal.xlsx` cirurgicamente como ZIP (ver abaixo). |
+| `js/conciliacao-relatorio.js` | `ConciliacaoRelatorio` | Gera o "Relatório Formatado" editando `assets/relatorio-fiscal.xlsx` cirurgicamente como ZIP (ver abaixo). |
 | `js/conciliacao-app.js` | — (IIFE) | Upload, execução da conciliação, dashboard, filtros, tabela, exportações, modal de novidades. Mantém o objeto `state`. |
 
 **Fluxo:** upload SEFAZ (CSV `windows-1252`, separador `;`, lido pelo SheetJS) + sistema
@@ -76,8 +81,9 @@ sistema, que é o mesmo layout Moura — Entrada/NF/Fornecedor/Vlr. Nota/Data Em
 | `js/servicos-engine.js` | `ServicosEngine` | Regra de casagem NFS-e × sistema, filtros, stats, `overrideId`. `module.exports` p/ testes. |
 | `js/servicos-parsers.js` | `ServicosParsers` | Lê o **lote de NFS-e**: um `.zip` (JSZip) do portal nacional ou `.xml` soltos. `nfseRowFromXmlString` extrai os campos do layout nacional (`http://www.sped.fazenda.gov.br/nfse`) via `DOMParser` e guarda o XML (sem `<Signature>`) em `row.xml`. `nfseRowsFromPlain` reidrata as linhas na importação de `.json`. |
 | `js/servicos-danfse.js` | `ServicosDanfse` | Monta a **DANFSe** a partir do `row.xml` como um HTML autossuficiente (`buildHtml`). Dois leiautes: `nacional` (réplica da DANFSe v2.0, para notas de AM) e `municipal` (estilo NFS-e paulistana, para SP / fora do estado) — `pickLayout` decide pela UF do prestador. |
+| `js/servicos-relatorio.js` | `ServicosRelatorio` | Gera o "Relatório Formatado" editando `assets/Fechamento_NFSe_Mensal.xlsx` cirurgicamente como ZIP (ver abaixo). |
 | `js/servicos-storage.js` | `ServicosStorage` | IndexedDB `conciliacao-servicos` (store `noteOverrides`, chave = `ServicosEngine.overrideId`). |
-| `js/servicos-app.js` | — (IIFE) | Upload, conciliação, dashboard, filtros, tabela, exportações, bundle `.json`, modal da DANFSe / descrição completa. |
+| `js/servicos-app.js` | — (IIFE) | Upload, conciliação, dashboard, filtros, tabela, exportações, bundle `.json`, modal da DANFSe / descrição completa, "Gerar Relatório Formatado". |
 
 **Identidade da NFS-e:** `overrideId` = a **chave de acesso da NFS-e (50 dígitos)**, do
 atributo `infNFSe/@Id` sem o prefixo `NFS`; fallback para `prestadorCnpj|nº|série|valor|emissão`.
@@ -89,6 +95,11 @@ e `vLiq`) → `LANÇADA`; emitida nos últimos 2 dias → `A LANÇAR`; senão `N
 O número da NFS-e (`nNFSe`) é comparado com a coluna `NF` do sistema; a casagem por
 valor+prestador cobre os casos em que o ERP renumera a nota.
 
+**Justificativa** (`JUSTIFICATIVA_OPCOES`): `NÃO PRECISA`, `JÁ LANÇADA`, `A LANÇAR`,
+`PARA REJEITAR`, `CANCELADA` — mesmo nome/vocabulário da conciliação da SEFAZ. Quando
+diferente de `NÃO PRECISA`, vira o status da nota via `JUSTIFICATIVA_STATUS`
+(`JÁ LANÇADA`→`LANÇADA`, `PARA REJEITAR`→`PARA REJEITAR`, as demais 1:1).
+
 **ISS:** `nfseRowFromXmlString` extrai `valores/vISSQN` (valor), `pAliqAplic`/`pAliq`
 (alíquota) e `tribMun/tpRetISSQN` (`1` = retido pelo tomador). A coluna ISS mostra o
 valor + a tag `ISS`/`RETIDO`; o filtro tem com ISS / ISS retido / **ISS não retido**
@@ -99,6 +110,10 @@ valor + a tag `ISS`/`RETIDO`; o filtro tem com ISS / ISS retido / **ISS não ret
 em nova aba. O texto da coluna Descrição é clicável e abre a descrição completa
 (`xDescServ`) num modal. O `row.xml` viaja no bundle `.json` para a DANFSe funcionar
 após importação.
+
+**Tomador:** `nfseRowFromXmlString` também extrai `toma/CNPJ` e `toma/xNome` (`row.tomadorCnpj`/
+`row.tomadorNome`) — não aparecem na tabela, só alimentam o campo "Empresa" do
+"Gerar Relatório Formatado" (ver abaixo).
 
 ## Regra de conciliação — três fontes que precisam ficar em sincronia
 
@@ -131,6 +146,58 @@ Premissas fixas presas ao modelo (revisar se o `.xlsx` for regravado pelo Excel)
   própria (`IF(SEFAZ!B2="","",SEFAZ!B2)`) — o app não a toca.
 - `forceFullCalcOnLoad` marca o workbook para recalcular ao abrir (os valores em cache
   das fórmulas continuam os do modelo até o Excel abrir).
+
+## `Fechamento_NFSe_Mensal.xlsx` — edição cirúrgica
+
+Modelo bem mais simples que o `relatorio-fiscal.xlsx`: uma aba única ("Fechamento NFS-e",
+sem Tabela/gráfico do Excel) + uma aba de legenda que `servicos-relatorio.js` nem toca.
+Como não há tabela do Excel para preservar, `writeFechamentoSheet` **reconstrói o
+`<sheetData>` inteiro** a cada geração (diferente do `relatorio-fiscal.xlsx`, que só edita
+células pontuais) — nº de linhas de dados = nº de NFS-e de `state.reconciled`, sem limite
+fixo (o modelo nasce com 40 linhas de exemplo, mas isso é só o ponto de partida).
+
+Estrutura fixa do modelo (linhas 1-9 = cabeçalho, reproduzidas linha a linha com os
+mesmos estilos `s=` do original):
+
+- Linha 5: metadados — `D5`=Empresa (moda de `row.tomadorNome` entre as notas), `G5`=
+  Competência (`MM/AAAA`, mês/ano mais frequente em `row.emissao`), `J5`=Responsável
+  (campo "Responsável:" da página), `M5`=fórmula `TODAY()` (não mexida).
+- Linha 7/8: cartões do dashboard — Total de Notas, Valor Total, ISS Total, **Não
+  Lançadas** (`COUNTIF(J10:J{lastDataRow},"Não Lançada")` — conta pela coluna `J`, não
+  mais pela `L`) e Canceladas — fórmulas `COUNTA`/`SUM`/`COUNTIF` recalculadas para o novo
+  intervalo.
+- Linha 9: cabeçalho da tabela (A–M, com emoji, texto fixo).
+- Linha 10 em diante: uma linha por NFS-e. Coluna `J` (Status) = os mesmos status do
+  fechamento de NFS-e na página — `Lançada`/`Não Lançada`/`Cancelada`/**`Para Rejeitar`**
+  (`statusDocumento`: `CANCELADA`/`row.cancelada` → Cancelada, `LANÇADA` → Lançada,
+  `PARA REJEITAR` → Para Rejeitar, resto (`NÃO LANÇADA`/`A LANÇAR`) → Não Lançada); coluna
+  `L` (Justificativa) = a mesma lista da página (`Engine.JUSTIFICATIVA_OPCOES`), só com
+  capitalização de frase — `JUSTIFICATIVA_XLSX_MAP` traduz 1:1 (`NÃO PRECISA`→"Não
+  precisa", ..., `PARA REJEITAR`→"Para rejeitar"). As listas suspensas do modelo
+  (`J`=`Lançada,Não Lançada,Cancelada,Para Rejeitar`;
+  `L`=`Não precisa,Já lançada,A lançar,Para rejeitar,Cancelada`), a formatação condicional
+  e a legenda na aba "📘 Legenda & Instruções" foram todas atualizadas juntas para bater com
+  esses valores. A cor "Para Rejeitar" (laranja-queimado, igual ao badge
+  `--badge-para-rejeitar` da SEFAZ) exigiu estender `xl/styles.xml` com uma nova fonte,
+  fill, `cellXf` (pill da legenda) e `dxf` (formatação condicional) — únicas partes deste
+  modelo, além do `<sheetData>` das duas abas, que já foram editadas manualmente (fora do
+  fluxo do `writeFechamentoSheet`, que só mexe na aba "Fechamento NFS-e").
+- Linhas que nasceram **"Não Lançada"** ou **"Para Rejeitar"** recebem em `J` uma
+  **fórmula** (`statusJFormula`), não um valor fixo: `IF($L="Cancelada","Cancelada",
+  IF($L="Já lançada","Lançada",IF($L="Para rejeitar","Para Rejeitar","Não Lançada")))`.
+  Assim, se depois — já na planilha — o usuário mudar a Justificativa daquela linha, o
+  Status acompanha sozinho, sem regerar o relatório. Linhas que já nasceram
+  Lançada/Cancelada (`buildStatusCell`) ficam com valor fixo — são fatos que vieram prontos
+  da conciliação (casaram no sistema ou vieram canceladas do lote de XML) e não devem mudar
+  por causa da Justificativa.
+- Linha seguinte à última nota: "TOTAL DO MÊS" com `SUM` de Valor/ISS.
+
+Depois de reescrever `<sheetData>`, `updateRanges` ajusta tudo que referenciava o
+intervalo fixo `10:49`/`50` do modelo original: `autoFilter`, a `mergeCell` da linha de
+total, as 4 `conditionalFormatting` (zebra, barra de dados do Valor — inclusive a
+duplicata em `extLst > x14:conditionalFormattings > xm:sqref` — e as cores de Status/
+Justificativa) e as 2 `dataValidation` (listas de Status/Justificativa), além de
+`dimension`. `forceFullCalcOnLoad` também é chamado.
 
 ## Identidade da nota
 

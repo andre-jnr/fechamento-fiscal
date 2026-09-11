@@ -26,14 +26,14 @@
     'NÃO PRECISA',
     'JÁ LANÇADA',
     'A LANÇAR',
-    'NÃO LANÇAR',
+    'PARA REJEITAR',
     'CANCELADA',
   ]
 
   const JUSTIFICATIVA_STATUS = {
     'JÁ LANÇADA': 'LANÇADA',
     'A LANÇAR': 'A LANÇAR',
-    'NÃO LANÇAR': 'DISPENSADA',
+    'PARA REJEITAR': 'PARA REJEITAR',
     CANCELADA: 'CANCELADA',
   }
 
@@ -42,7 +42,7 @@
     'NÃO LANÇADA',
     'A LANÇAR',
     'CANCELADA',
-    'DISPENSADA',
+    'PARA REJEITAR',
   ]
 
   // Palavras que não ajudam a distinguir uma razão social da outra.

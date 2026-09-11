@@ -93,9 +93,11 @@
     const cServ = firstEl(infDPS, 'cServ')
     const tribMun = firstEl(infDPS, 'tribMun')
     const vServEl = firstEl(infDPS, 'vServ')
+    const toma = firstEl(infDPS, 'toma')
 
     const chave = String(infNFSe.getAttribute('Id') || '').replace(/\D/g, '')
     const prestadorCnpj = Base.normalizeCNPJ(txt(emit, 'CNPJ') || txt(firstEl(infDPS, 'prest'), 'CNPJ'))
+    const tomadorCnpj = Base.normalizeCNPJ(txt(toma, 'CNPJ'))
 
     const valorServicoBruto = Base.normalizeValor(
       vServEl ? vServEl.textContent : ''
@@ -131,6 +133,8 @@
       cStat: Base.stripQuotes(txt(infNFSe, 'cStat')),
       cancelada: !!info.cancelada,
       arquivo: info.arquivo || '',
+      tomadorCnpj,
+      tomadorNome: Base.stripQuotes(txt(toma, 'xNome')),
       // XML sem as assinaturas — usado para montar a DANFSe sob demanda
       xml: stripSignatures(xmlText),
     }
@@ -149,6 +153,8 @@
         prestadorCnpj: Base.normalizeCNPJ(r.prestadorCnpj || ''),
         prestadorCnpjFormatado:
           r.prestadorCnpjFormatado || Base.formatCNPJ(Base.normalizeCNPJ(r.prestadorCnpj || '')),
+        tomadorCnpj: Base.normalizeCNPJ(r.tomadorCnpj || ''),
+        tomadorNome: r.tomadorNome || '',
         valorServico: Base.normalizeValor(r.valorServico),
         valorLiquido: Base.normalizeValor(r.valorLiquido),
         iss: Base.normalizeValor(r.iss),

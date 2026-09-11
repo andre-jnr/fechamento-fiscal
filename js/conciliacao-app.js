@@ -743,7 +743,7 @@
   // copiar e colar que era feito direto no Excel.
   // -----------------------------------------------------------------------
 
-  const RELATORIO_TEMPLATE_URL = 'relatorio-fiscal.xlsx'
+  const RELATORIO_TEMPLATE_URL = 'assets/relatorio-fiscal.xlsx'
 
   async function gerarRelatorioFormatado() {
     if (!state.sefaz || !state.sistema) return

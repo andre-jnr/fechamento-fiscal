@@ -17,7 +17,7 @@
     'NÃO PRECISA': 'Não precisa',
     'JÁ LANÇADA': 'Já lançada',
     'A LANÇAR': 'A lançar',
-    'NÃO LANÇAR': 'Não lançar',
+    'PARA REJEITAR': 'Para rejeitar',
     CANCELADA: 'Cancelada',
   }
 
@@ -27,7 +27,7 @@
     { key: 'NÃO LANÇADA', label: 'Não Lançadas' },
     { key: 'A LANÇAR', label: 'A Lançar' },
     { key: 'CANCELADA', label: 'Canceladas' },
-    { key: 'DISPENSADA', label: 'Dispensadas' },
+    { key: 'PARA REJEITAR', label: 'Para Rejeitar' },
     { key: '__iss__', label: 'Com ISS' },
   ]
 
@@ -320,18 +320,23 @@
 
       try {
         const stats = Engine.computeStats(results)
-        await Storage.addHistoryEntry({
-          nfseFileName: state.nfse.fileName,
-          sistemaFileName: state.sistema.fileName,
-          totalNotas: stats.total,
-          lancadas: stats.porStatus['LANÇADA'] ? stats.porStatus['LANÇADA'].qtd : 0,
-          naoLancadas: stats.porStatus['NÃO LANÇADA'] ? stats.porStatus['NÃO LANÇADA'].qtd : 0,
-          responsavel: el('inputResponsavel').value || '',
-        })
+        // best-effort: não deixa um IndexedDB travado atrasar a liberação dos botões
+        await Promise.race([
+          Storage.addHistoryEntry({
+            nfseFileName: state.nfse.fileName,
+            sistemaFileName: state.sistema.fileName,
+            totalNotas: stats.total,
+            lancadas: stats.porStatus['LANÇADA'] ? stats.porStatus['LANÇADA'].qtd : 0,
+            naoLancadas: stats.porStatus['NÃO LANÇADA'] ? stats.porStatus['NÃO LANÇADA'].qtd : 0,
+            responsavel: el('inputResponsavel').value || '',
+          }),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ])
       } catch (e) {
         /* histórico é best-effort */
       }
 
+      el('btnRelatorioFormatado').disabled = false
       el('btnExportAll').disabled = false
       el('btnExportFiltered').disabled = false
       el('btnExportBundle').disabled = false
@@ -508,7 +513,7 @@
       'NÃO LANÇADA': 'badge--nao-lancada',
       'A LANÇAR': 'badge--falta-chegar',
       CANCELADA: 'badge--cancelada',
-      DISPENSADA: 'badge--neutro',
+      'PARA REJEITAR': 'badge--para-rejeitar',
     }
     return map[status] || 'badge--neutro'
   }
@@ -823,6 +828,36 @@
   }
 
   // -----------------------------------------------------------------------
+  // Relatório formatado (planilha assets/Fechamento_NFSe_Mensal.xlsx) —
+  // preenche a aba "Fechamento NFS-e" com state.reconciled inteiro (sem
+  // filtro), igual ao "Gerar Relatório Formatado" de conciliacao.html.
+  // -----------------------------------------------------------------------
+
+  const RELATORIO_NFSE_TEMPLATE_URL = 'assets/Fechamento_NFSe_Mensal.xlsx'
+
+  async function gerarRelatorioFormatado() {
+    if (!state.nfse || !state.sistema || !state.reconciled.length) return
+    const btn = el('btnRelatorioFormatado')
+    btn.disabled = true
+    try {
+      const blob = await window.ServicosRelatorio.gerar(RELATORIO_NFSE_TEMPLATE_URL, state.reconciled, {
+        responsavel: el('inputResponsavel').value || '',
+      })
+
+      const { mes, ano } = Engine.detectMesAno(state.nfse.rows)
+      const filename = `fechamento-nfse-${mes.toLowerCase()}-${ano}.xlsx`
+      triggerDownload(blob, filename)
+
+      showToast('Relatório formatado gerado com sucesso.', 'success')
+    } catch (err) {
+      console.error(err)
+      showToast('Não foi possível gerar o relatório formatado. Tente novamente.', 'error')
+    } finally {
+      btn.disabled = false
+    }
+  }
+
+  // -----------------------------------------------------------------------
   // Exportação
   // -----------------------------------------------------------------------
 
@@ -884,6 +919,8 @@
       cStat: r.cStat,
       cancelada: r.cancelada,
       arquivo: r.arquivo,
+      tomadorCnpj: r.tomadorCnpj,
+      tomadorNome: r.tomadorNome,
       xml: r.xml || '',
     }
   }
@@ -1016,6 +1053,7 @@
     })
 
     el('btnConciliar').addEventListener('click', runConciliacao)
+    el('btnRelatorioFormatado').addEventListener('click', gerarRelatorioFormatado)
     el('btnExportAll').addEventListener('click', () => exportRows(state.reconciled, 'conciliacao-servicos.xlsx'))
     el('btnExportFiltered').addEventListener('click', () =>
       exportRows(getFilteredRows(), 'conciliacao-servicos-filtrado.xlsx')

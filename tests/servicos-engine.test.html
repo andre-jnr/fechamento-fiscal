@@ -115,7 +115,7 @@
         const row = nfse({ numero: '997', valorServico: 500, emissao: diasAtras(15) })
         const idx = Engine.buildIndices([])
         assertEqual('Justificativa "JÁ LANÇADA"', Engine.conciliar(row, idx, 'JÁ LANÇADA', HOJE), 'LANÇADA')
-        assertEqual('Justificativa "NÃO LANÇAR" -> DISPENSADA', Engine.conciliar(row, idx, 'NÃO LANÇAR', HOJE), 'DISPENSADA')
+        assertEqual('Justificativa "PARA REJEITAR" -> PARA REJEITAR', Engine.conciliar(row, idx, 'PARA REJEITAR', HOJE), 'PARA REJEITAR')
         assertEqual('Justificativa "NÃO PRECISA" não altera', Engine.conciliar(row, idx, 'NÃO PRECISA', HOJE), 'NÃO LANÇADA')
       })()
 
