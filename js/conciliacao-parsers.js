@@ -228,6 +228,9 @@
     { key: 'fornecedor', names: ['FORNECEDOR'] },
     { key: 'dataEmissao', names: ['DATA EMISSAO', 'DATA DE EMISSAO', 'EMISSAO'] },
     { key: 'chave', names: ['CHAVE DE ACESSO', 'CHAVE NFE', 'CHAVE_NFE', 'CHAVE'] },
+    // Só vem preenchido quando o sistema foi buscado pelo conector-erp (o export
+    // manual do Moura nunca tem essa coluna) — habilita o botão de DANFE na tabela.
+    { key: 'xml', names: ['XML NFE', 'CONTEUDO XML', 'CONTEUDO_ARQUIVO_XML', 'XML'] },
   ]
 
   async function parseSistemaXlsx(file) {
@@ -287,6 +290,11 @@
   function detectSistemaOrigem(matrix) {
     for (const row of matrix.slice(0, 60)) {
       for (const cell of row) {
+        // Só olha células "curtas" (cabeçalho/marcador) — colunas de texto livre
+        // longo (ex.: o XML da NF-e, que o conector-erp inclui pra habilitar a
+        // DANFE) podem conter a substring "atak.com.br" por coincidência (ex.: um
+        // e-mail do próprio cliente/fornecedor Atak) sem o arquivo ser do Atak.
+        if (typeof cell === 'string' && cell.length > 80) continue
         const h = normalizeHeader(cell)
         if (h === 'CHAVE FATO' || h.indexOf('TIPO MOVTO') === 0) return 'atak'
         if (typeof cell === 'string' && cell.toLowerCase().indexOf('atak.com.br') !== -1) return 'atak'
@@ -327,6 +335,9 @@
         // Engine.buildIndices/encontraRecebida). Nem todo lançamento tem chave (ex.:
         // entradas de serviço) — nesses casos cai no fallback de sempre.
         chave: Engine.stripQuotes(get(colIndex.chave)),
+        // XML completo da NF-e — só o conector-erp traz isso (ver comentário acima).
+        // Sem stripQuotes: é o conteúdo bruto do XML, não um texto de planilha.
+        xml: String(get(colIndex.xml) || ''),
       }
     })
 

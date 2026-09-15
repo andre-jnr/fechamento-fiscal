@@ -121,6 +121,17 @@
       </div>
     </div>
 
+    <div class="conc-modal-overlay" id="danfeModalOverlay" hidden>
+      <div class="conc-modal conc-modal--danfe" id="danfeModalBox" role="dialog" aria-modal="true">
+        <div class="danfe-modal-head">
+          <strong id="danfeModalTitle"></strong>
+          <div class="danfe-modal-actions" id="danfeModalActions"></div>
+          <button type="button" class="danfe-modal-close" id="danfeModalClose" aria-label="Fechar">✕</button>
+        </div>
+        <div class="danfe-modal-body" id="danfeModalBody"></div>
+      </div>
+    </div>
+
     <div class="conc-shell">
       <header class="conc-header">
         <div class="conc-title-block">
@@ -393,6 +404,9 @@
           <table class="conc-table">
             <thead>
               <tr>
+                <th class="col-chave-h" title="Abrir a DANFE (só quando o sistema veio do conector-erp)">
+                  DANFE
+                </th>
                 <th class="col-chave-h" title="Copiar chave de acesso">
                   Chave
                 </th>
@@ -453,6 +467,7 @@
     <script src="js/conciliacao-parsers.js"></script>
     <script src="js/conciliacao-storage.js"></script>
     <script src="js/conciliacao-relatorio.js"></script>
+    <script src="js/conciliacao-danfe.js"></script>
     <script src="js/conciliacao-app.js"></script>
   </body>
 </html>

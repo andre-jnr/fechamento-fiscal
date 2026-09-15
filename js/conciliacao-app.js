@@ -10,6 +10,7 @@
   const Engine = window.ConciliacaoEngine
   const Parsers = window.ConciliacaoParsers
   const Storage = window.ConciliacaoStorage
+  const Danfe = window.ConciliacaoDanfe
 
   const JUSTIFICATIVA_LABELS = {
     'NÃO PRECISA': 'Não precisa',
@@ -363,7 +364,9 @@
           const observacao = (override && override.observacao) || ''
           const unidade = Engine.unidadeNome(row.cnpjDestinatario)
           const status = Engine.conciliarNota(row, indices, justificativa)
-          results.push(Object.assign({}, row, { key, overrideId, unidade, justificativa, observacao, status }))
+          const chaveDigits = Engine.chaveAcessoDigits(row.chave)
+          const xml = chaveDigits ? indices.xmlPorChave.get(chaveDigits) || '' : ''
+          results.push(Object.assign({}, row, { key, overrideId, unidade, justificativa, observacao, status, xml }))
         }
         updateProgress(Math.round(((i + chunk.length) / sefazRows.length) * 100))
         await nextTick()
@@ -602,6 +605,7 @@
     for (const row of pageRows) {
       const tr = document.createElement('tr')
 
+      tr.appendChild(danfeCell(row))
       tr.appendChild(chaveCell(row))
       tr.appendChild(td(row.uf))
       tr.appendChild(td(row.nf))
@@ -681,6 +685,30 @@
   const CLIPBOARD_SVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
 
+  const DANFE_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v4h4"/><path d="M9 12h6M9 15.5h4"/></svg>'
+
+  // Só existe quando o sistema veio do conector-erp (busca direto no banco, que traz
+  // o XML da NF-e) — upload manual do XLSX nunca preenche row.xml, então a coluna
+  // fica vazia (sem botão) nesse caso, sem quebrar nada.
+  function danfeCell(row) {
+    const cell = document.createElement('td')
+    cell.className = 'col-chave'
+    if (row.xml) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'conc-chave-btn conc-danfe-btn'
+      btn.dataset.key = row.key
+      btn.title = 'Abrir a DANFE desta NF-e'
+      btn.setAttribute('aria-label', 'Abrir a DANFE')
+      btn.innerHTML = DANFE_SVG
+      cell.appendChild(btn)
+    } else {
+      cell.textContent = '—'
+    }
+    return cell
+  }
+
   function chaveCell(row) {
     const cell = document.createElement('td')
     cell.className = 'col-chave'
@@ -735,6 +763,86 @@
   }
 
   // -----------------------------------------------------------------------
+  // Modal da DANFE (só quando o sistema veio do conector-erp — ver danfeCell)
+  // -----------------------------------------------------------------------
+
+  let danfeModalCleanup = null
+
+  function openDanfeModal(title) {
+    el('danfeModalBox').className = 'conc-modal conc-modal--danfe'
+    el('danfeModalTitle').textContent = title
+    el('danfeModalActions').innerHTML = ''
+    el('danfeModalBody').innerHTML = ''
+    el('danfeModalOverlay').hidden = false
+    document.addEventListener('keydown', onDanfeModalKey)
+  }
+
+  function closeDanfeModal() {
+    el('danfeModalOverlay').hidden = true
+    el('danfeModalBody').innerHTML = ''
+    document.removeEventListener('keydown', onDanfeModalKey)
+    if (danfeModalCleanup) {
+      danfeModalCleanup()
+      danfeModalCleanup = null
+    }
+  }
+
+  function onDanfeModalKey(e) {
+    if (e.key === 'Escape') closeDanfeModal()
+  }
+
+  function openDanfe(row) {
+    if (!row.xml || !Danfe) {
+      showToast('DANFE indisponível para esta nota.', 'error')
+      return
+    }
+    const html = Danfe.buildHtml(row.xml, { cancelada: row.situacao === 'CANCELADA' })
+    openDanfeModal(`DANFE — NF-e ${row.nf || ''}`)
+
+    const actions = el('danfeModalActions')
+    const btnPrint = document.createElement('button')
+    btnPrint.type = 'button'
+    btnPrint.className = 'conc-btn'
+    btnPrint.textContent = 'Imprimir'
+    const btnTab = document.createElement('button')
+    btnTab.type = 'button'
+    btnTab.className = 'conc-btn'
+    btnTab.textContent = 'Abrir em nova aba'
+    actions.append(btnPrint, btnTab)
+
+    const iframe = document.createElement('iframe')
+    iframe.className = 'danfe-frame'
+    iframe.setAttribute('title', 'DANFE')
+    iframe.srcdoc = html
+    el('danfeModalBody').appendChild(iframe)
+
+    btnPrint.addEventListener('click', () => {
+      try {
+        iframe.contentWindow.focus()
+        iframe.contentWindow.print()
+      } catch (e) {
+        showToast('Não foi possível imprimir. Use "Abrir em nova aba".', 'error')
+      }
+    })
+    let blobUrl = null
+    btnTab.addEventListener('click', () => {
+      blobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
+      window.open(blobUrl, '_blank', 'noopener')
+    })
+    danfeModalCleanup = () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
+    }
+  }
+
+  function setupDanfeModal() {
+    if (!el('danfeModalOverlay')) return
+    el('danfeModalClose').addEventListener('click', closeDanfeModal)
+    el('danfeModalOverlay').addEventListener('click', (e) => {
+      if (e.target === el('danfeModalOverlay')) closeDanfeModal()
+    })
+  }
+
+  // -----------------------------------------------------------------------
   // Edição inline (delegação de eventos)
   // -----------------------------------------------------------------------
 
@@ -745,6 +853,12 @@
       else if (e.target.matches('.observacao-input')) onObservacaoChange(e.target)
     })
     tbody.addEventListener('click', (e) => {
+      const danfeBtn = e.target.closest('.conc-danfe-btn')
+      if (danfeBtn) {
+        const row = state.reconciledByKey.get(danfeBtn.dataset.key)
+        if (row) openDanfe(row)
+        return
+      }
       const btn = e.target.closest('.conc-chave-btn')
       if (btn) copyToClipboard(btn.dataset.chave, 'Chave copiada para a área de transferência.')
     })
@@ -1051,6 +1165,7 @@
     })
 
     setupInlineEdit()
+    setupDanfeModal()
 
     const savedResponsavel = localStorage.getItem('conc_responsavel')
     if (savedResponsavel) el('inputResponsavel').value = savedResponsavel

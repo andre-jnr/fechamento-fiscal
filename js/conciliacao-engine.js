@@ -185,6 +185,9 @@
     // Chaves de acesso (44 dígitos) lançadas no sistema — quando presentes dos dois
     // lados, a casagem é exata (sem depender de NF/valor baterem).
     const comprasPorChave = new Set()
+    // XML da NF-e por chave — só populado quando o sistema veio do conector-erp
+    // (upload manual de XLSX nunca traz XML). Usado pra habilitar o botão de DANFE.
+    const xmlPorChave = new Map()
     for (const c of sistemaRows) {
       const nf = normalizeNF(c.nf)
       if (nf) {
@@ -193,6 +196,7 @@
       }
       const chave = chaveAcessoDigits(c.chave)
       if (chave) comprasPorChave.add(chave)
+      if (chave && c.xml) xmlPorChave.set(chave, c.xml)
     }
 
     // Subconjuntos derivados do próprio SEFAZ (fiel à planilha real:
@@ -211,7 +215,7 @@
       relacaoPorNF.set(nf, classificarEntrada(r, saidasValores))
     }
 
-    return { comprasPorNF, comprasPorChave, saidasValores, entradasValores, relacaoPorNF }
+    return { comprasPorNF, comprasPorChave, xmlPorChave, saidasValores, entradasValores, relacaoPorNF }
   }
 
   function classificarEntrada(row, saidasValores) {

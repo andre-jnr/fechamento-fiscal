@@ -558,6 +558,60 @@
   justify-content: flex-end;
 }
 
+/* ---------- Modal da DANFE (NF-e — só quando o sistema vem do conector-erp) ---------- */
+
+.conc-modal--danfe {
+  max-width: 1040px;
+  padding: 1rem 1rem 1.25rem;
+}
+
+.danfe-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.danfe-modal-head strong {
+  font-size: 1rem;
+  color: var(--dark);
+}
+
+.danfe-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.danfe-modal-actions .conc-btn {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+.danfe-modal-close {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  color: var(--gray);
+  flex-shrink: 0;
+}
+
+.danfe-modal-close:hover {
+  color: var(--dark);
+  border-color: var(--green-main);
+}
+
+.danfe-frame {
+  width: 100%;
+  height: 74vh;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
 /* ---------- Dashboard ---------- */
 
 .conc-stats-grid {

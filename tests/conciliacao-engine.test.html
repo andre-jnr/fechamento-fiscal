@@ -167,6 +167,23 @@
         assertEqual('Cenário 9d — chave sem correspondência não gera falso positivo', Engine.conciliarNota(row, indices), 'NÃO LANÇADA')
       })()
 
+      // --- Cenário 9e: xmlPorChave só indexa quando tem chave válida E xml (usado
+      // pelo botão de DANFE, que só existe quando o sistema veio do conector-erp) ---
+      ;(function () {
+        const chave = '13260904312377000137558900016804791753352224'
+        const indices = Engine.buildIndices(
+          [],
+          [
+            { nf: '1', valor: 1, chave, xml: '<xml-de-verdade/>' },
+            { nf: '2', valor: 2, chave: '2'.repeat(44) }, // sem xml -> não entra no mapa
+            { nf: '3', valor: 3, xml: '<sem-chave/>' }, // sem chave -> não entra no mapa
+          ]
+        )
+        assertEqual('Cenário 9e — xmlPorChave guarda o xml pela chave', indices.xmlPorChave.get(chave), '<xml-de-verdade/>')
+        assertEqual('Cenário 9e — linha sem xml não entra no mapa', indices.xmlPorChave.has('2'.repeat(44)), false)
+        assertEqual('Cenário 9e — mapa não cresce com linhas sem chave', indices.xmlPorChave.size, 1)
+      })()
+
       // --- Cenário 10: Justificativa = FALTA CHEGAR ---
       ;(function () {
         const row = baseRow({ nf: '797', emissao: diasAtras(10) })
@@ -290,6 +307,27 @@
         assertEqual('Atak — fornecedor sem o código', atak.rows[0].fornecedor, 'ARCELOMITTAL BRASIL')
         assertEqual('Atak — rawMatrix no layout Moura (cabeçalho NF)', atak.rawMatrix[0][1], 'NF')
         assertEqual('Atak — rawMatrix relido como Moura', Parsers.sistemaRowsFromMatrix(atak.rawMatrix).origem, 'moura')
+
+        // Regressão: o rawMatrix do conector-erp (Moura) agora pode trazer o XML
+        // completo da NF-e numa coluna extra — se a nota for de/para a empresa Atak
+        // (comum na unidade do CD), o XML pode conter a substring "atak.com.br" (ex.:
+        // um e-mail) só por coincidência. Isso não pode fazer o detector achar que o
+        // arquivo inteiro é um export do Atak (que exigiria colunas Documento/Valor
+        // Total que esse layout não tem).
+        const xmlLongoComAtak =
+          '<nfeProc><infNFe><dest><email>compras@atak.com.br</email><xNome>ATAK DISTRIBUIDORA</xNome></dest></infNFe></nfeProc>'.padEnd(200, ' ')
+        const mouraComXmlAtak = [
+          ['NF', 'Fornecedor', 'Vlr. Nota', 'Chave de Acesso', 'XML NFe'],
+          ['456', 'FORN Y', '2.000,00', '1'.repeat(44), xmlLongoComAtak],
+        ]
+        assertEqual(
+          'detectSistemaOrigem — XML longo com "atak.com.br" não derruba pro Atak',
+          Parsers.detectSistemaOrigem(mouraComXmlAtak),
+          'moura'
+        )
+        const mouraComXmlAtakRows = Parsers.sistemaRowsFromMatrix(mouraComXmlAtak)
+        assertEqual('sistemaRowsFromMatrix — continua lendo como Moura mesmo com XML da Atak', mouraComXmlAtakRows.origem, 'moura')
+        assertEqual('sistemaRowsFromMatrix — NF lida corretamente (não caiu no parser errado)', mouraComXmlAtakRows.rows[0].nf, '456')
       })()
 
       // Render

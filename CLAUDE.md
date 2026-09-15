@@ -56,7 +56,8 @@ o orquestrador:
 | `js/conciliacao-parsers.js` | `ConciliacaoParsers` | Lê e valida o CSV da SEFAZ e o XLSX/XLS do sistema. `parse*` (a partir de `File`) e `*RowsFromMatrix` (a partir da matriz bruta — usado na importação de `.json`). O arquivo do sistema tem duas origens: **Moura** (padrão) e **Atak** (filial do CD) — `detectSistemaOrigem` decide pela cara do arquivo e `sistemaRowsFromMatrix` delega para o parser certo. |
 | `js/conciliacao-storage.js` | `ConciliacaoStorage` | IndexedDB (`conciliacao-fiscal`): store `noteOverrides` (o que o usuário alimenta, chave = `Engine.overrideId`) e `importHistory`. |
 | `js/conciliacao-relatorio.js` | `ConciliacaoRelatorio` | Gera o "Relatório Formatado" editando `assets/relatorio-fiscal.xlsx` cirurgicamente como ZIP (ver abaixo). |
-| `js/conciliacao-app.js` | — (IIFE) | Upload, execução da conciliação, dashboard, filtros, tabela, exportações, modal de novidades. Mantém o objeto `state`. |
+| `js/conciliacao-danfe.js` | `ConciliacaoDanfe` | Monta a **DANFE** (produto, modelo 55) a partir do XML padrão da NF-e (`http://www.portalfiscal.inf.br/nfe`) como HTML autossuficiente — réplica do leiaute clássico (canhoto, cabeçalho com código de barras decorativo, destinatário, cálculo do imposto, transportador, tabela de produtos). Mesmo espírito de `servicos-danfse.js`, mas pro layout de nota de produto. |
+| `js/conciliacao-app.js` | — (IIFE) | Upload, execução da conciliação, dashboard, filtros, tabela, exportações, modal de novidades, modal da DANFE. Mantém o objeto `state`. |
 
 **Fluxo:** upload SEFAZ (CSV `windows-1252`, separador `;`, lido pelo SheetJS) + sistema
 (XLSX/XLS, ou via `conector-erp/` — ver seção própria) → `parsers` → `state.sefaz` /
@@ -71,6 +72,22 @@ se o export tiver essa coluna (`SISTEMA_OPTIONAL_FIELDS`: "Chave de Acesso"/"Cha
 NFe"/"Chave") — quando não tem (comum em exports antigos, ou linhas sem chave, ex.:
 entradas de serviço), cai no fallback de sempre: NF + valor com tolerância R$0,02.
 `buildIndices` monta `comprasPorChave` (Set) além do já existente `comprasPorNF`.
+
+**Botão de DANFE (1ª coluna da tabela, antes de "Chave"):** só existe quando o
+sistema veio do **conector-erp** (busca direto no banco) — o export manual do XLSX
+nunca traz o XML da nota. O SQL de `conector-erp/query.js` já buscava
+`Conteudo_Arquivo_Xml`; agora ele também sai no `rawMatrix` (coluna extra `XML NFe`,
+depois de "Empresa") e `SISTEMA_OPTIONAL_FIELDS` (`js/conciliacao-parsers.js`) lê essa
+coluna pro campo `row.xml` — como o parser é o mesmo pra upload manual e pra busca do
+conector-erp, um XLSX manual simplesmente não tem essa coluna e `row.xml` fica vazio
+em todas as linhas, então o botão nunca aparece nesse caminho (sem tratamento
+especial). `buildIndices` monta `xmlPorChave` (Map chave→xml) junto com
+`comprasPorChave`; em `runConciliacao`, cada linha reconciliada ganha
+`xml: indices.xmlPorChave.get(chaveDaSefaz) || ''`. `danfeCell`/`openDanfe`
+(`js/conciliacao-app.js`) e o modal `#danfeModalOverlay` seguem o mesmo padrão do
+modal da DANFSe em `conciliacao-servicos.html` (iframe `srcdoc` + Imprimir + Abrir em
+nova aba), só que renderizando via `ConciliacaoDanfe.buildHtml` (leiaute de NF-e, não
+de NFS-e).
 
 **Sistema Atak (CD):** o nº da NF e a série saem da coluna "Documento"
 (`filial-tipo-serie-numero`, ex.: `111-NEE-000-139439` → série `000`, NF `139439`); o
@@ -293,11 +310,23 @@ site inteiro, pra `conector-erp/server.js` conseguir servir estático a partir d
 
 **Se algum arquivo do site ou do `conector-erp/` mudar, o zip fica desatualizado** —
 não há automação que regenera sozinho. Pra regenerar: montar uma pasta com
-`git ls-files` (menos `tests/`, `CLAUDE.md`, `.gitignore`) + a cópia sanitizada de
-`conector-erp/` (tudo igual, exceto `config/unidades.js` trocado pelo placeholder e
-sem `.env`), compactar com `Compress-Archive` e sobrescrever `assets/conector-erp.zip`.
+`git ls-files` (menos `tests/`, `CLAUDE.md`, `.gitignore`, e o próprio
+`assets/conector-erp.zip`) + a cópia sanitizada de `conector-erp/` (tudo igual, exceto
+`config/unidades.js` trocado pelo placeholder e sem `.env`), compactar com
+`Compress-Archive` e sobrescrever `assets/conector-erp.zip`. **Cuidado:**
+`git ls-files` só lista o que já está **commitado** — um arquivo novo criado na mesma
+sessão (ex.: `js/conciliacao-danfe.js` quando foi criado) fica de fora até ser
+commitado, então depois de criar um arquivo novo que o site precisa, copie-o pra pasta
+de staging manualmente antes de compactar (e confira com `diff -r` contra
+`js/`/`css/`/etc. do repo antes de sobrescrever, pra não deixar nada faltando de novo).
 **Sempre conferir antes de commitar** (extrair o zip gerado e `grep` pela senha real e
 pelos hostnames de `conector-erp/config/unidades.js` — nenhum dos dois pode aparecer).
+**Nunca copie `conector-erp/config/unidades.js` direto pro staging** — é o arquivo com
+os 5 hostnames/IPs/bancos reais; já aconteceu de copiar ele por engano (mesmo nome de
+arquivo que o placeholder, fácil de confundir num loop de cópia). O placeholder correto
+sempre vem de um zip já sanitizado anterior (extrair e reusar
+`conector-erp/config/unidades.js` de dentro do `.zip`, não da pasta `conector-erp/`
+real) ou reescrito do zero com `SERVIDOR_AQUI`/`BANCO_AQUI`.
 
 ## Identidade da nota
 
