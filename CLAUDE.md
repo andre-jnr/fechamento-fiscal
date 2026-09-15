@@ -12,9 +12,10 @@ sem dependências instaláveis — só HTML/CSS/JS servido como arquivo. Bibliot
 
 Três páginas:
 
-- `index.html` — landing: baixa o modelo `assets/relatorio-fiscal.xlsx`, baixa
-  `controle-nf.xlsx` (planilha admin) e exibe a fórmula principal da conciliação para
-  copiar no Excel.
+- `index.html` — landing com 3 cards: abrir `conciliacao.html`, abrir
+  `conciliacao-servicos.html`, e baixar o modelo `assets/relatorio-fiscal.xlsx`. Link
+  fixo no canto pra `controle-nf.xlsx` (planilha admin). Abaixo dos cards, um painel
+  "Fechamento conectado ao ERP" baixa `assets/conector-erp.zip` — ver seção própria.
 - `conciliacao.html` — a aplicação web de conciliação (notas da SEFAZ × ERP).
 - `conciliacao-servicos.html` — conciliação das **NFS-e** (notas de serviço) emitidas
   contra o nosso CNPJ × entradas de serviço lançadas no ERP.
@@ -39,6 +40,10 @@ Pasta `arquivos_exemplo/` guarda arquivos reais só para teste local — **intei
   node -e 'global.window=global;global.ConciliacaoEngine=require("./js/conciliacao-engine.js");require("./js/conciliacao-parsers.js");let h=require("fs").readFileSync("tests/conciliacao-engine.test.html","utf8");let c=h.split(/<script>/).pop().split("</script>")[0].replace(/\/\/ Render[\s\S]*$/,"")+"\nreturn results";const r=new Function(c)();const f=r.filter(x=>!x.pass);console.log((r.length-f.length)+"/"+r.length);f.forEach(x=>console.log("FAIL",x.name))'
   ```
 - **Deploy:** `git push` na `main` (GitHub Pages, `andre-jnr/fechamento-fiscal`).
+- **Fechamento conectado ao ERP (opcional):** `cd conector-erp && npm install && npm start`
+  sobe um servidor local que também serve o site — abrir
+  `http://localhost:3000/conciliacao.html` em vez do Live Server, precisa estar na VPN.
+  Ver "`conector-erp/` — fechamento conectado ao ERP" mais abaixo.
 
 ## Arquitetura de `conciliacao.html`
 
@@ -54,16 +59,25 @@ o orquestrador:
 | `js/conciliacao-app.js` | — (IIFE) | Upload, execução da conciliação, dashboard, filtros, tabela, exportações, modal de novidades. Mantém o objeto `state`. |
 
 **Fluxo:** upload SEFAZ (CSV `windows-1252`, separador `;`, lido pelo SheetJS) + sistema
-(XLSX/XLS) → `parsers` → `state.sefaz` / `state.sistema` → `Engine.buildIndices` +
-`Engine.conciliarNota` por nota → `state.reconciled` → render. Edições inline de
-Justificativa/Observação persistem no IndexedDB por `overrideId`.
+(XLSX/XLS, ou via `conector-erp/` — ver seção própria) → `parsers` → `state.sefaz` /
+`state.sistema` → `Engine.buildIndices` + `Engine.conciliarNota` por nota →
+`state.reconciled` → render. Edições inline de Justificativa/Observação persistem no
+IndexedDB por `overrideId`.
+
+**Casagem SEFAZ × sistema (`Engine.encontraRecebida`):** tenta primeiro por **chave de
+acesso** (44 dígitos, `Engine.chaveAcessoDigits`) — quando os dois lados têm chave, é
+casagem exata, sem depender de NF/valor baterem. O parser do sistema só extrai `chave`
+se o export tiver essa coluna (`SISTEMA_OPTIONAL_FIELDS`: "Chave de Acesso"/"Chave
+NFe"/"Chave") — quando não tem (comum em exports antigos, ou linhas sem chave, ex.:
+entradas de serviço), cai no fallback de sempre: NF + valor com tolerância R$0,02.
+`buildIndices` monta `comprasPorChave` (Set) além do já existente `comprasPorNF`.
 
 **Sistema Atak (CD):** o nº da NF e a série saem da coluna "Documento"
 (`filial-tipo-serie-numero`, ex.: `111-NEE-000-139439` → série `000`, NF `139439`); o
 valor é a coluna "Valor Total". O parser do Atak devolve um `rawMatrix` já no layout do
 Moura (Entrada/NF/Fornecedor/Desconto/Vlr. Nota/…) para que o "Relatório Formatado" e o
-bundle `.json` funcionem sem tratamento especial. A casagem SEFAZ×sistema é por NF+valor
-(tolerância R$0,02), igual ao Moura. CNPJ do CD: `19234190000644`.
+bundle `.json` funcionem sem tratamento especial. Esse layout não tem chave de acesso —
+cai sempre no fallback NF+valor. CNPJ do CD: `19234190000644`.
 
 **Exportar/Importar Conciliação:** um único `.json` com `sefaz.rawMatrix` +
 `sistema.rawMatrix` + `notas[]` (id/justificativa/observação). Importar reconstrói as
@@ -115,19 +129,37 @@ após importação.
 `row.tomadorNome`) — não aparecem na tabela, só alimentam o campo "Empresa" do
 "Gerar Relatório Formatado" (ver abaixo).
 
-## Regra de conciliação — três fontes que precisam ficar em sincronia
+## Regra de conciliação — duas fontes que precisam ficar em sincronia
 
-A mesma lógica existe em **três lugares** e qualquer alteração de regra tem que ser
-replicada nos três:
+A mesma lógica existe em **dois lugares** e qualquer alteração de regra tem que ser
+replicada nos dois:
 
 1. `Engine.conciliarNota` em `js/conciliacao-engine.js` (a implementação executável);
-2. a fórmula da coluna STATUS na tabela `RELATORIO` dentro de `relatorio-fiscal.xlsx`;
-3. a fórmula exibida (em português do Excel) em `index.html`.
+2. a fórmula da coluna STATUS na tabela `RELATORIO` dentro de `relatorio-fiscal.xlsx`.
 
-Ordem das regras: ENTRADA (sub-regras) → NF+valor casa no sistema (tolerância R$0,02) →
-CANCELADA → indicador SEFAZ de rejeição → justificativa manual → CFOP 5926 → CFOP 5949
-emitida por um CNPJ do próprio grupo (`Engine.CNPJS_PROPRIOS`) → valor casa com ENTRADA
-do próprio SEFAZ → CFOP 5927 → UF ≠ AM → emissão nos últimos 2 dias → NÃO LANÇADA.
+(`index.html` tinha uma 3ª cópia — o texto da fórmula exibido pra copiar no Excel — mas
+essa seção foi removida no redesign da landing page; hoje `index.html` só tem os 3
+cards de navegação, nada de fórmula.)
+
+Ordem das regras: ENTRADA (sub-regras) → NF+valor casa no sistema (tolerância R$0,02) —
+**na versão JS, casagem por chave de acesso tem prioridade sobre essa etapa, ver acima**
+— → CANCELADA → indicador SEFAZ de rejeição → justificativa manual → CFOP 5926 → CFOP
+5949 emitida por um CNPJ do próprio grupo (`Engine.CNPJS_PROPRIOS`) → valor casa com
+ENTRADA do próprio SEFAZ → CFOP 5927 → UF ≠ AM → emissão nos últimos 2 dias →
+NÃO LANÇADA.
+
+**Gap conhecido e deliberado:** a fórmula da coluna STATUS em `relatorio-fiscal.xlsx`
+(dentro da Tabela `RELATORIO`, via `XLOOKUP` em `tabela_compras[NF]`/`[Vlr. Nota]`)
+**ainda não casa por chave** — só JS. Motivo: a Tabela do Excel `tabela_compras` (a
+aba SISTEMA) só cobre as colunas `A:I` (9 colunas, dimensionada pro layout do Atak);
+a coluna "Chave de Acesso" do Moura cai na coluna O, fora do intervalo da Tabela.
+Alargar uma Tabela do Excel de verdade (com slicers dependendo dela) via edição bruta
+de XML é arriscado demais pra fazer sem conseguir abrir o resultado no Excel pra
+conferir — por isso ficou de fora por ora. Se for resolver: alargue a Tabela pelo
+próprio Excel (Design da Tabela → Redimensionar Tabela, até a coluna O) e só então
+peça pra atualizar a fórmula (aí é só texto, não estrutura). Enquanto isso, o
+`relatorio-fiscal.xlsx` casa só por NF+valor — sem regressão, só um gap conhecido em
+relação à página web.
 
 ## `relatorio-fiscal.xlsx` — edição cirúrgica
 
@@ -198,6 +230,74 @@ total, as 4 `conditionalFormatting` (zebra, barra de dados do Valor — inclusiv
 duplicata em `extLst > x14:conditionalFormattings > xm:sqref` — e as cores de Status/
 Justificativa) e as 2 `dataValidation` (listas de Status/Justificativa), além de
 `dimension`. `forceFullCalcOnLoad` também é chamado.
+
+## `conector-erp/` — fechamento conectado ao ERP (opcional, local)
+
+Pasta **inteira fora do repositório público** (`.gitignore`, mesmo padrão de
+`arquivos_exemplo/`) — tem credencial real de banco no `.env`. Resolve o passo manual
+de "exportar o XLSX do sistema e subir no site": é um servidor Node/Express que roda
+na máquina do usuário (precisa estar na VPN da empresa) e:
+
+1. **Serve o site estático inteiro** (raiz do repo) em `http://localhost:3000` — usar
+   `http://localhost:3000/conciliacao.html` em vez da URL do GitHub Pages. Servir pela
+   mesma origem evita *mixed content* (HTTPS não pode chamar `http://localhost`) sem
+   precisar de certificado. A URL pública continua funcionando normalmente, sem
+   nenhuma mudança — é 100% opt-in.
+2. Expõe `GET /api/sistema?unidade=CHAVE&de=YYYY-MM-DD&ate=YYYY-MM-DD`, que consulta
+   `Entrada_Produto` no SQL Server da unidade (`config/unidades.js` — Parque Dez,
+   Ponta Negra, Morada do Sol, Monte das Oliveiras, CD) e devolve `{ rawMatrix }` **no
+   mesmo layout do export manual do Moura**, incluindo a Chave de Acesso — por isso o
+   front-end reaproveita `Parsers.sistemaRowsFromMatrix` sem nenhum parsing novo.
+
+`conciliacao.html`/`js/conciliacao-app.js`: quando `location.hostname` é
+`localhost`/`127.0.0.1`, o card SISTEMA mostra um bloco extra ("buscar direto do
+sistema") com seletor de unidade + período + botão — `setupConectorErp()` busca
+`/api/unidades` pra popular o seletor e, no clique, `fetch('/api/sistema?...')` →
+`Parsers.sistemaRowsFromMatrix` → mesma atribuição a `state.sistema` que o upload
+manual já fazia. Fora do localhost (GitHub Pages) o bloco nem aparece; o upload manual
+continua como único caminho, sem alteração.
+
+**Dois gaps só confirmáveis no banco real** (documentados com `TODO` em
+`conector-erp/query.js` e no `README.md` da pasta — sem VPN/acesso ao banco, não deu
+pra validar a query de ponta a ponta): (1) nome do Fornecedor — a consulta de
+`Entrada_Produto` não traz, falta confirmar o JOIN certo; (2) "Vlr. Nota" (valor total
+da nota) — só existe `Valor_Produtos` na consulta original, usado como placeholder.
+Nenhum dos dois bloqueia a casagem por chave (que já vem completa via `Chave_NFE`),
+só afetam a coluna Fornecedor exibida e o fallback NF+valor pras poucas notas sem
+chave.
+
+**`conector-erp/iniciar.bat`** — clique-duplo pra rodar sem terminal: confere Node.js
+instalado, cria `.env` a partir do `.env.example` na 1ª vez (e para aí, pedindo pra
+preencher usuário/senha), avisa se `config/unidades.js` ainda tem os placeholders
+(`SERVIDOR_AQUI`/`BANCO_AQUI`), roda `npm install` só se `node_modules/` não existir, e
+por fim sobe o servidor numa janela separada (`cmd /k`, fica aberta pra ver os logs) e
+abre `http://localhost:3000/conciliacao.html` no navegador padrão. **Sempre salvar com
+quebra de linha CRLF e sem caractere não-ASCII** — testado e confirmado que `.bat` com
+só `LF` ou com caractere UTF-8 multi-byte (ex.: travessão "—") quebra o parser do
+`cmd.exe` de um jeito sutil (perde os primeiros caracteres de cada linha, "setlocal"
+virava "tlocal" etc.) sem erro óbvio.
+
+**`assets/conector-erp.zip` — pacote público pra baixar em `index.html`:** como o
+`conector-erp/` de verdade tem credencial real (`.env`, `config/unidades.js` com
+hostname/IP/banco reais) e fica todo fora do git, o zip **não é esse `conector-erp/`
+compactado direto** — é gerado à parte, sanitizado, e **esse sim é commitado
+normalmente** (não está no `.gitignore`). Conteúdo do zip: todos os arquivos rastreados
+pelo git na raiz do repo (`git ls-files`, exceto `tests/`, `CLAUDE.md` e `.gitignore` —
+site inteiro, pra `conector-erp/server.js` conseguir servir estático a partir de
+`__dirname/..`) **+** uma cópia sanitizada de `conector-erp/`: `package.json`,
+`server.js`, `db.js`, `query.js`, `iniciar.bat` e `.env.example` são idênticos aos reais
+(não têm segredo nenhum, só leem do `.env`/`config/unidades.js` em runtime) — só
+`config/unidades.js` é **substituído por um placeholder** (`SERVIDOR_AQUI`/
+`BANCO_AQUI`, sem os 5 hostnames/IPs/bancos reais) e o `.env` real **não entra**
+(só o `.env.example`, já genérico). Documentado no `README.md` de dentro do zip.
+
+**Se algum arquivo do site ou do `conector-erp/` mudar, o zip fica desatualizado** —
+não há automação que regenera sozinho. Pra regenerar: montar uma pasta com
+`git ls-files` (menos `tests/`, `CLAUDE.md`, `.gitignore`) + a cópia sanitizada de
+`conector-erp/` (tudo igual, exceto `config/unidades.js` trocado pelo placeholder e
+sem `.env`), compactar com `Compress-Archive` e sobrescrever `assets/conector-erp.zip`.
+**Sempre conferir antes de commitar** (extrair o zip gerado e `grep` pela senha real e
+pelos hostnames de `conector-erp/config/unidades.js` — nenhum dos dois pode aparecer).
 
 ## Identidade da nota
 

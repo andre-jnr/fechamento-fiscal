@@ -182,11 +182,17 @@
   function buildIndices(sefazRows, sistemaRows) {
     // tabela_compras: por NF -> lista de {valor}
     const comprasPorNF = new Map()
+    // Chaves de acesso (44 dígitos) lançadas no sistema — quando presentes dos dois
+    // lados, a casagem é exata (sem depender de NF/valor baterem).
+    const comprasPorChave = new Set()
     for (const c of sistemaRows) {
       const nf = normalizeNF(c.nf)
-      if (!nf) continue
-      if (!comprasPorNF.has(nf)) comprasPorNF.set(nf, [])
-      comprasPorNF.get(nf).push(c.valor)
+      if (nf) {
+        if (!comprasPorNF.has(nf)) comprasPorNF.set(nf, [])
+        comprasPorNF.get(nf).push(c.valor)
+      }
+      const chave = chaveAcessoDigits(c.chave)
+      if (chave) comprasPorChave.add(chave)
     }
 
     // Subconjuntos derivados do próprio SEFAZ (fiel à planilha real:
@@ -205,7 +211,7 @@
       relacaoPorNF.set(nf, classificarEntrada(r, saidasValores))
     }
 
-    return { comprasPorNF, saidasValores, entradasValores, relacaoPorNF }
+    return { comprasPorNF, comprasPorChave, saidasValores, entradasValores, relacaoPorNF }
   }
 
   function classificarEntrada(row, saidasValores) {
@@ -216,6 +222,13 @@
   }
 
   function encontraRecebida(row, indices) {
+    // Casagem exata por chave de acesso tem prioridade — mais precisa que NF+valor e
+    // não depende de tolerância. Só funciona quando os dois lados têm chave (o export
+    // do sistema nem sempre traz, ex.: entradas de serviço); nesse caso cai no
+    // fallback de NF+valor de sempre.
+    const chave = chaveAcessoDigits(row.chave)
+    if (chave && indices.comprasPorChave.has(chave)) return true
+
     const candidatos = indices.comprasPorNF.get(normalizeNF(row.nf))
     if (!candidatos) return false
     return candidatos.some((valor) => Math.abs(valor - row.valor) <= TOLERANCIA_VALOR)

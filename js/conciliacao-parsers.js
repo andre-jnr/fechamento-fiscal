@@ -227,6 +227,7 @@
   const SISTEMA_OPTIONAL_FIELDS = [
     { key: 'fornecedor', names: ['FORNECEDOR'] },
     { key: 'dataEmissao', names: ['DATA EMISSAO', 'DATA DE EMISSAO', 'EMISSAO'] },
+    { key: 'chave', names: ['CHAVE DE ACESSO', 'CHAVE NFE', 'CHAVE_NFE', 'CHAVE'] },
   ]
 
   async function parseSistemaXlsx(file) {
@@ -321,6 +322,11 @@
         valor: Engine.normalizeValor(get(colIndex.valor)),
         fornecedor: Engine.stripQuotes(get(colIndex.fornecedor)),
         dataEmissao: get(colIndex.dataEmissao),
+        // Chave de Acesso da NF-e (44 dígitos) — quando o export do sistema traz essa
+        // coluna, a casagem com a SEFAZ pode ser exata em vez de NF+valor (ver
+        // Engine.buildIndices/encontraRecebida). Nem todo lançamento tem chave (ex.:
+        // entradas de serviço) — nesses casos cai no fallback de sempre.
+        chave: Engine.stripQuotes(get(colIndex.chave)),
       }
     })
 

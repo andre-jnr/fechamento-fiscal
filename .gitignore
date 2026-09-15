@@ -28,3 +28,8 @@ csv-sefaz*.csv
 Arquivos de exemplo/
 arquivos_exemplo/
 *sefaz*.csv
+
+# Conector local do ERP (server.js lê Entrada_Produto direto do SQL Server via VPN).
+# Tem credenciais de banco em .env — a pasta inteira fica de fora do repositório
+# público, nunca só o .env.
+conector-erp/

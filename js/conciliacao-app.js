@@ -269,6 +269,71 @@
     el('btnConciliar').disabled = !(state.sefaz && state.sistema)
   }
 
+  // Integração opcional com o conector-erp (servidor local, ver conector-erp/README.md):
+  // só aparece quando a página é servida por ele (http://localhost:PORTA), nunca no
+  // GitHub Pages — o upload manual do XLSX continua funcionando do mesmo jeito.
+  function setupConectorErp() {
+    if (!['localhost', '127.0.0.1'].includes(location.hostname)) return
+
+    const wrap = el('conectorErp')
+    const selectUnidade = el('conectorUnidade')
+    const inputDe = el('conectorDe')
+    const inputAte = el('conectorAte')
+    const btn = el('btnConectorBuscar')
+    const status = el('statusConectorErp')
+
+    const hoje = new Date()
+    const primeiroDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+    inputDe.value = primeiroDoMes.toISOString().slice(0, 10)
+    inputAte.value = hoje.toISOString().slice(0, 10)
+
+    fetch('/api/unidades')
+      .then((r) => r.json())
+      .then((unidades) => {
+        selectUnidade.innerHTML = unidades
+          .map((u) => `<option value="${escapeHtml(u.chave)}">${escapeHtml(u.nome)}</option>`)
+          .join('')
+        wrap.hidden = false
+      })
+      .catch(() => {
+        // Sem conector-erp rodando (ex.: Live Server na porta 5501) — não mostra o bloco.
+      })
+
+    btn.addEventListener('click', async () => {
+      const unidade = selectUnidade.value
+      const de = inputDe.value
+      const ate = inputAte.value
+      if (!unidade || !de || !ate) {
+        showToast('Selecione a unidade e o período.', 'error')
+        return
+      }
+
+      const card = el('cardSistema')
+      btn.disabled = true
+      card.classList.remove('is-loaded')
+      status.innerHTML = '<span class="dot"></span> Buscando...'
+
+      try {
+        const resp = await fetch(`/api/sistema?unidade=${encodeURIComponent(unidade)}&de=${de}&ate=${ate}`)
+        const data = await resp.json()
+        if (!resp.ok) throw new Error(data.erro || 'Falha ao buscar do sistema.')
+
+        const result = Parsers.sistemaRowsFromMatrix(data.rawMatrix)
+        result.fileName = `sistema-${unidade}-${de}-a-${ate}.xlsx`
+        state.sistema = result
+        card.classList.add('is-loaded')
+        status.innerHTML = `<span class="dot"></span> ${result.rows.length} notas${sistemaOrigemSufixo(result.origem)}`
+        updateConciliarButton()
+      } catch (err) {
+        status.innerHTML = ''
+        const msg = err instanceof Parsers.ConciliacaoImportError ? err.message : err.message || Parsers.MSG_FORMATO_INVALIDO
+        showToast(msg, 'error')
+      } finally {
+        btn.disabled = false
+      }
+    })
+  }
+
   // -----------------------------------------------------------------------
   // Conciliação
   // -----------------------------------------------------------------------
@@ -926,6 +991,8 @@
       state.sistema = result
       return result
     })
+
+    setupConectorErp()
 
     el('btnConciliar').addEventListener('click', runConciliacao)
     el('btnExportAll').addEventListener('click', () => exportRows(state.reconciled, 'conciliacao-fiscal.xlsx'))

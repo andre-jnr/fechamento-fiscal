@@ -304,6 +304,21 @@
             accept=".xlsx,.xls"
           />
           <div class="conc-upload-status" id="statusSistema"></div>
+
+          <div class="conc-conector-erp" id="conectorErp" hidden>
+            <div class="conc-conector-erp-divider">
+              <span>ou busque direto do sistema (VPN)</span>
+            </div>
+            <div class="conc-conector-erp-fields">
+              <select id="conectorUnidade" aria-label="Unidade"></select>
+              <input type="date" id="conectorDe" aria-label="De" />
+              <input type="date" id="conectorAte" aria-label="Até" />
+              <button type="button" id="btnConectorBuscar" class="conc-btn">
+                Buscar do sistema
+              </button>
+            </div>
+            <div class="conc-upload-status" id="statusConectorErp"></div>
+          </div>
         </div>
       </section>
 

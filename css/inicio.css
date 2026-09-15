@@ -410,6 +410,113 @@ body::after {
   color: #fff;
 }
 
+/* ---------- Painel avançado (conector-erp) ---------- */
+
+.lp-advanced {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: clamp(1.1rem, 2.4vw, 1.8rem);
+  padding: clamp(1.3rem, 2.2vw, 1.75rem) clamp(1.4rem, 2.6vw, 2rem);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.6);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px dashed rgba(15, 23, 42, 0.14);
+  animation: lp-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: 0.4s;
+}
+
+.lp-advanced-icon {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--green-soft);
+  border: 1px solid rgba(29, 111, 66, 0.14);
+}
+
+.lp-advanced-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: var(--green-main);
+}
+
+.lp-advanced-body {
+  flex: 1;
+  min-width: 220px;
+}
+
+.lp-advanced-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--green-main);
+}
+
+.lp-advanced-title {
+  margin: 0.3rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--dark);
+}
+
+.lp-advanced-sub {
+  margin: 0.4rem 0 0;
+  max-width: 62ch;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--gray);
+}
+
+.lp-advanced-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.75rem 1.2rem;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--green-main);
+  text-decoration: none;
+  background: var(--green-soft);
+  border: 1px solid rgba(29, 111, 66, 0.2);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.lp-advanced-btn svg {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+}
+
+.lp-advanced-btn:hover {
+  background: linear-gradient(135deg, var(--green-main), var(--green-accent));
+  color: #fff;
+  border-color: transparent;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px -10px rgba(29, 111, 66, 0.5);
+}
+
+@media (max-width: 700px) {
+  .lp-advanced {
+    flex-wrap: wrap;
+  }
+  .lp-advanced-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* ---------- Rodapé ---------- */
 
 .lp-foot {

@@ -144,6 +144,29 @@
         assertEqual('Cenário 9 — diferença acima de R$0,02 não casa', Engine.conciliarNota(row, indices), 'NÃO LANÇADA')
       })()
 
+      // --- Cenário 9b: chave de acesso bate, mesmo com NF e valor diferentes -> RECEBIDA ---
+      ;(function () {
+        const chave = '13260904312377000137558900016804791753352224'
+        const row = baseRow({ nf: '999999', valor: 12345.67, emissao: diasAtras(10), chave })
+        const indices = Engine.buildIndices([row], [{ nf: '000000001', valor: 1, chave }])
+        assertEqual('Cenário 9b — casa por chave mesmo com NF/valor diferentes', Engine.conciliarNota(row, indices), 'RECEBIDA')
+      })()
+
+      // --- Cenário 9c: SEFAZ tem chave mas o sistema não trouxe essa coluna -> cai no fallback NF+valor ---
+      ;(function () {
+        const chave = '13260904312377000137558900016804791753352224'
+        const row = baseRow({ nf: '800', valor: 321, emissao: diasAtras(10), chave })
+        const indices = Engine.buildIndices([row], [{ nf: '800', valor: 321 }])
+        assertEqual('Cenário 9c — sem chave no sistema, cai no fallback NF+valor', Engine.conciliarNota(row, indices), 'RECEBIDA')
+      })()
+
+      // --- Cenário 9d: chave presente nos dois lados mas sem correspondência, e NF+valor também não batem -> NÃO LANÇADA ---
+      ;(function () {
+        const row = baseRow({ nf: '801', valor: 322, emissao: diasAtras(10), chave: '1'.repeat(44) })
+        const indices = Engine.buildIndices([row], [{ nf: '999', valor: 999, chave: '2'.repeat(44) }])
+        assertEqual('Cenário 9d — chave sem correspondência não gera falso positivo', Engine.conciliarNota(row, indices), 'NÃO LANÇADA')
+      })()
+
       // --- Cenário 10: Justificativa = FALTA CHEGAR ---
       ;(function () {
         const row = baseRow({ nf: '797', emissao: diasAtras(10) })

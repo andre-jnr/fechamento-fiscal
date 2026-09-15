@@ -302,6 +302,52 @@
   flex-shrink: 0;
 }
 
+.conc-conector-erp {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.conc-conector-erp-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.72rem;
+  color: var(--gray);
+}
+
+.conc-conector-erp-divider::before,
+.conc-conector-erp-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.conc-conector-erp-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.conc-conector-erp-fields select,
+.conc-conector-erp-fields input[type='date'] {
+  flex: 1 1 120px;
+  min-width: 0;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--dark);
+  font-family: inherit;
+  font-size: 0.8rem;
+}
+
+.conc-conector-erp-fields .conc-btn {
+  flex: 1 1 100%;
+  justify-content: center;
+}
+
 .conc-origem-tag {
   display: inline-block;
   margin-left: 0.15rem;
