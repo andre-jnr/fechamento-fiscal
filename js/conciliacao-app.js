@@ -1250,7 +1250,9 @@
   // abertura após a atualização de setembro.
   // -----------------------------------------------------------------------
 
-  const NOVIDADES_KEY = 'conc_novidades_setembro_2026'
+  // _v2: conteúdo trocado (DANFE, .zip da SEFAZ, Atak, conector-erp) — muda a chave
+  // pra quem já tinha visto a versão antiga (3 itens) ver o aviso de novo.
+  const NOVIDADES_KEY = 'conc_novidades_setembro_2026_v2'
 
   function setupNovidades() {
     const overlay = el('novidadesOverlay')
