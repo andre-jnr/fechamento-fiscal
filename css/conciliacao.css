@@ -210,6 +210,31 @@
   margin-bottom: 1.5rem;
 }
 
+.conc-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  margin-bottom: 1.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: var(--badge-nao-lancada-bg);
+  border: 1px solid rgba(180, 83, 9, 0.18);
+  color: var(--badge-nao-lancada-fg);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.conc-info-banner svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 0.1rem;
+}
+
+.conc-info-banner strong {
+  font-weight: 700;
+}
+
 .conc-upload-card {
   background: var(--surface);
   border: 1.5px dashed var(--border);

@@ -260,20 +260,24 @@
             </div>
             <div>
               <strong>SEFAZ</strong>
-              <span>Notas emitidas contra o CNPJ (CSV)</span>
+              <span
+                >Notas emitidas contra o CNPJ (CSV, .zip de XML, ou os dois
+                juntos — o .zip habilita a DANFE)</span
+              >
             </div>
           </div>
           <label class="conc-upload-dropzone" for="inputSefaz" id="dropSefaz">
-            Arraste o arquivo CSV aqui ou
+            Arraste o CSV e/ou o .zip de XML aqui ou
             <strong style="color: var(--green-main)"
-              >selecione o arquivo</strong
+              >selecione os arquivos</strong
             >
           </label>
           <input
             class="conc-upload-file"
             type="file"
             id="inputSefaz"
-            accept=".csv"
+            accept=".csv,.zip"
+            multiple
           />
           <div class="conc-upload-status" id="statusSefaz"></div>
         </div>
@@ -332,6 +336,29 @@
           </div>
         </div>
       </section>
+
+      <div class="conc-info-banner">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 16v-5M12 8h.01" />
+        </svg>
+        <div>
+          <strong>Sobre o .zip de XML da SEFAZ:</strong> soltando o .zip, já dá pra
+          visualizar a DANFE das notas. Mas para conferir corretamente a
+          <strong>Situação</strong> de cada nota (Cancelada ou Autorizada), é preciso
+          soltar o .zip <strong>junto com</strong> o CSV da SEFAZ — o .zip sozinho não
+          traz essa informação (o cancelamento de uma nota não fica registrado no XML
+          dela, só o CSV da SEFAZ sabe dizer).
+        </div>
+      </div>
 
       <div class="conc-conciliar-row">
         <div class="conc-responsavel" style="max-width: 320px">

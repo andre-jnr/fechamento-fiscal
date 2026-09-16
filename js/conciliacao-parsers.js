@@ -184,6 +184,11 @@
     if (fornecedorIdx === -1) throw new ConciliacaoImportError(msgColunaAusente('Fornecedor'))
 
     const chaveIdx = findColumnIndex(headerRow, ['CHAVE', 'CHAVE DE ACESSO'])
+    // Só existe quando o arquivo veio de um .zip de XML (ver parseSefazZip) — o CSV
+    // baixado do portal da SEFAZ nunca tem essa coluna, então `xml` fica vazio em
+    // todas as linhas nesse caminho (sem tratamento especial). Habilita o botão de
+    // DANFE pra TODAS as notas (não só as que casam com o sistema via conector-erp).
+    const xmlIdx = findColumnIndex(headerRow, ['XML', 'XML NFE'])
 
     const rows = dataRows.map((cells) => {
       const get = (idx) => (idx == null || idx === -1 ? '' : cells[idx])
@@ -205,10 +210,249 @@
         tipo: Engine.stripQuotes(get(colIndex.tipo)).toUpperCase(),
         valor: Engine.normalizeValor(get(colIndex.valor)),
         rejeitada: Engine.stripQuotes(get(colIndex.rejeitada)).toUpperCase(),
+        xml: String(get(xmlIdx) || ''),
       }
     })
 
     return { rows, rawMatrix: matrix, colIndex }
+  }
+
+  // -----------------------------------------------------------------------
+  // SEFAZ (.zip de XML) — alternativa ao CSV: um .zip com os XMLs das notas
+  // (modelo NF-e nacional, http://www.portalfiscal.inf.br/nfe), como o baixado
+  // no "Download de XMLs" do portal da SEFAZ. Cada XML vira uma linha equivalente
+  // à do CSV, e o texto do XML é guardado pra habilitar o botão de DANFE em TODAS
+  // as notas (não só nas que casam com o sistema via conector-erp).
+  // -----------------------------------------------------------------------
+
+  const SEFAZ_ZIP_HEADER = [
+    'UF', 'CHAVE', 'NUMERO', 'SERIE', 'EMISSAO', 'CNPJ EMISSOR',
+    'RAZAO SOCIAL', 'CNPJ-CPF DESTINATARIO', 'CFOP', 'SITUACAO', 'TIPO', 'VALOR', 'REJEITADA', 'XML',
+  ]
+
+  function xmlTxt(parent, tag) {
+    if (!parent) return ''
+    const els = parent.getElementsByTagName(tag)
+    return els.length ? String(els[0].textContent || '').trim() : ''
+  }
+
+  function xmlFirstEl(parent, tag) {
+    if (!parent) return null
+    const els = parent.getElementsByTagName(tag)
+    return els.length ? els[0] : null
+  }
+
+  // Remove os blocos <Signature> (assinatura + certificado) — não são usados pra
+  // montar a DANFE e representam boa parte do tamanho do XML.
+  function stripSignatures(xmlText) {
+    return String(xmlText || '')
+      .replace(/<(\w+:)?Signature[\s\S]*?<\/(\w+:)?Signature>/g, '')
+      .trim()
+  }
+
+  function isXmlName(name) {
+    return /\.xml$/i.test(name || '')
+  }
+
+  // pasta "Canceladas"/"Cancelados" em qualquer nível do .zip.
+  function isCanceladaPath(path) {
+    return /(^|[\\/])cancel\w*[\\/]/i.test(String(path || ''))
+  }
+
+  function zipBaseName(path) {
+    return String(path || '').split(/[\\/]/).pop()
+  }
+
+  // Constrói a linha "crua" (strings, como no CSV) a partir do texto de um XML de
+  // NF-e. Devolve null se o XML não for uma NF-e válida (ex.: evento de
+  // cancelamento em arquivo separado, ou lixo dentro do zip) — nesse caso a linha
+  // é só ignorada, sem interromper a importação do resto do lote.
+  function sefazRowRawFromXml(xmlText, meta) {
+    const info = meta || {}
+    let doc
+    try {
+      doc = new DOMParser().parseFromString(String(xmlText || ''), 'application/xml')
+    } catch (e) {
+      return null
+    }
+    if (!doc || doc.getElementsByTagName('parsererror').length) return null
+
+    const infNFe = xmlFirstEl(doc, 'infNFe')
+    if (!infNFe) return null
+
+    const ide = xmlFirstEl(infNFe, 'ide')
+    const emit = xmlFirstEl(infNFe, 'emit')
+    const dest = xmlFirstEl(infNFe, 'dest')
+    const det = xmlFirstEl(infNFe, 'det')
+    const prod = xmlFirstEl(det, 'prod')
+    const total = xmlFirstEl(infNFe, 'total')
+    const icmsTot = xmlFirstEl(total, 'ICMSTot')
+
+    const chave = String(infNFe.getAttribute('Id') || '').replace(/\D/g, '')
+    const nf = xmlTxt(ide, 'nNF')
+    if (!chave && !nf) return null
+
+    const emitCnpj = xmlTxt(emit, 'CNPJ')
+    const destCnpjCpf = xmlTxt(dest, 'CNPJ') || xmlTxt(dest, 'CPF')
+    // TIPO vem do campo oficial da NF-e (ide/tpNF: 0=Entrada, 1=Saída) — é uma
+    // propriedade da própria nota (fiscal/CFOP), não depende de quem somos nós.
+    // Ex.: uma compra em que somos o destinatário ainda pode estar marcada como
+    // "Saída" do ponto de vista fiscal da operação (confirmado 1:1 contra o CSV
+    // real da SEFAZ em arquivos_exemplo/: 232/232 notas bateram). O critério
+    // anterior (SAÍDA quando o emitente é um dos nossos CNPJs) estava errado —
+    // não é isso que tpNF representa.
+    const tipo = xmlTxt(ide, 'tpNF') === '0' ? 'ENTRADA' : 'SAÍDA'
+    const dhEmi = xmlTxt(ide, 'dhEmi') || xmlTxt(ide, 'dEmi')
+    const emissaoISO = (String(dhEmi).match(/^\d{4}-\d{2}-\d{2}/) || [''])[0]
+
+    return [
+      xmlTxt(emit, 'UF'), // UF
+      chave, // CHAVE
+      nf, // NUMERO
+      xmlTxt(ide, 'serie'), // SERIE
+      emissaoISO, // EMISSAO
+      emitCnpj, // CNPJ EMISSOR
+      xmlTxt(emit, 'xNome'), // RAZAO SOCIAL
+      destCnpjCpf, // CNPJ-CPF DESTINATARIO
+      xmlTxt(prod, 'CFOP'), // CFOP
+      info.cancelada ? 'CANCELADA' : '', // SITUACAO
+      tipo, // TIPO
+      xmlTxt(icmsTot, 'vNF'), // VALOR
+      'N', // REJEITADA — só existe XML autorizado; rejeitada não gera XML válido
+      stripSignatures(xmlText), // XML
+    ]
+  }
+
+  // Detecta um XML de EVENTO de cancelamento (procEventoNFe/retEventoNFe — tpEvento
+  // 110111, cStat 135/155) e devolve a chave (44 dígitos) da nota cancelada, ou null
+  // se o XML não for um evento de cancelamento. O "Download de XMLs" do portal só
+  // inclui esse arquivo quando o usuário marca a opção de baixar eventos junto — por
+  // isso este é um sinal best-effort: quando o zip não tem esses arquivos (caso mais
+  // comum), SITUACAO cai no fallback de "AUTORIZADA" e só o CSV mesmo sabe dizer que
+  // a nota foi cancelada depois (ver `attachXmlFromZip`, pensado pra esse caso).
+  function chaveCanceladaFromEventoXml(xmlText) {
+    let doc
+    try {
+      doc = new DOMParser().parseFromString(String(xmlText || ''), 'application/xml')
+    } catch (e) {
+      return null
+    }
+    if (!doc || doc.getElementsByTagName('parsererror').length) return null
+    if (xmlTxt(doc, 'tpEvento') !== '110111') return null
+    const cStat = xmlTxt(doc, 'cStat')
+    if (cStat !== '135' && cStat !== '155') return null
+    const chave = String(xmlTxt(doc, 'chNFe')).replace(/\D/g, '')
+    return chave.length === 44 ? chave : null
+  }
+
+  async function loadZipEntries(file) {
+    let buffer
+    try {
+      buffer = await readFileAsArrayBuffer(file)
+    } catch (e) {
+      throw new ConciliacaoImportError(MSG_ARQUIVO_INVALIDO)
+    }
+
+    const bytes = new Uint8Array(buffer.slice(0, 4))
+    if (!isZipSignature(bytes)) throw new ConciliacaoImportError(MSG_ARQUIVO_INVALIDO)
+    if (!global.JSZip) throw new ConciliacaoImportError('Biblioteca de leitura de .zip indisponível.')
+
+    let zip
+    try {
+      zip = await global.JSZip.loadAsync(buffer)
+    } catch (e) {
+      throw new ConciliacaoImportError(MSG_ARQUIVO_INVALIDO)
+    }
+
+    const entradas = []
+    zip.forEach((path, entry) => {
+      if (!entry.dir && isXmlName(path)) entradas.push({ path, entry })
+    })
+    if (!entradas.length) throw new ConciliacaoImportError(MSG_ARQUIVO_VAZIO)
+
+    const arquivos = []
+    for (const { path, entry } of entradas) {
+      arquivos.push({ path, xmlText: await entry.async('string') })
+    }
+    return arquivos
+  }
+
+  // Separa os arquivos de um lote entre "notas" (infNFe) e "eventos de
+  // cancelamento" — devolve as notas junto com o Set de chaves canceladas
+  // encontradas (via evento e/ou pasta "Canceladas/", os dois sinais possíveis).
+  function splitNotasECancelamentos(arquivos) {
+    const notas = []
+    const canceladas = new Set()
+    for (const { path, xmlText } of arquivos) {
+      const chaveCancelada = chaveCanceladaFromEventoXml(xmlText)
+      if (chaveCancelada) {
+        canceladas.add(chaveCancelada)
+        continue
+      }
+      if (isCanceladaPath(path)) {
+        const m = xmlText.match(/Id="NFe(\d{44})"/)
+        if (m) canceladas.add(m[1])
+      }
+      notas.push({ path, xmlText })
+    }
+    return { notas, canceladas }
+  }
+
+  async function parseSefazZip(file) {
+    if (!file) throw new ConciliacaoImportError(MSG_ARQUIVO_INVALIDO)
+    const arquivos = await loadZipEntries(file)
+    const { notas, canceladas } = splitNotasECancelamentos(arquivos)
+
+    const linhas = []
+    for (const { path, xmlText } of notas) {
+      const linha = sefazRowRawFromXml(xmlText, { arquivo: zipBaseName(path) })
+      if (!linha) continue
+      const chaveDigits = linha[1]
+      if (canceladas.has(chaveDigits)) linha[9] = 'CANCELADA' // índice de SITUACAO em SEFAZ_ZIP_HEADER
+      linhas.push(linha)
+    }
+    if (!linhas.length) throw new ConciliacaoImportError(MSG_ARQUIVO_VAZIO)
+
+    const matrix = [SEFAZ_ZIP_HEADER.slice(), ...linhas]
+    const result = sefazRowsFromMatrix(matrix)
+    result.fileName = file.name
+    return result
+  }
+
+  // Anexa o XML de cada nota (casando pela chave de acesso) num resultado da SEFAZ
+  // que já veio do CSV — usado quando o usuário importa o CSV *e* o .zip juntos.
+  // Ao contrário de `parseSefazZip` (que tenta reconstruir a linha inteira a partir
+  // só do XML), aqui SITUACAO/TIPO/CFOP/VALOR/etc. continuam vindo do CSV, que é a
+  // fonte de verdade — o zip só contribui o texto do XML, habilitando o botão de
+  // DANFE pra toda nota que casar pela chave.
+  async function attachXmlFromZip(sefazResult, file) {
+    const arquivos = await loadZipEntries(file)
+    const xmlPorChave = new Map()
+    for (const { xmlText } of arquivos) {
+      const m = xmlText.match(/Id="NFe(\d{44})"/)
+      if (m && !xmlPorChave.has(m[1])) xmlPorChave.set(m[1], stripSignatures(xmlText))
+    }
+
+    const rows = sefazResult.rows.map((row) => {
+      const chaveDigits = Engine.chaveAcessoDigits(row.chave)
+      const xml = (chaveDigits && xmlPorChave.get(chaveDigits)) || row.xml || ''
+      return Object.assign({}, row, { xml })
+    })
+
+    const header = sefazResult.rawMatrix[0].slice()
+    let xmlIdx = findColumnIndex(header, ['XML', 'XML NFE'])
+    if (xmlIdx === -1) {
+      header.push('XML')
+      xmlIdx = header.length - 1
+    }
+    const body = sefazResult.rawMatrix.slice(1).map((cells, i) => {
+      const novaLinha = cells.slice()
+      while (novaLinha.length < header.length) novaLinha.push('')
+      novaLinha[xmlIdx] = rows[i].xml
+      return novaLinha
+    })
+
+    return Object.assign({}, sefazResult, { rows, rawMatrix: [header, ...body] })
   }
 
   // -----------------------------------------------------------------------
@@ -411,6 +655,8 @@
   global.ConciliacaoParsers = {
     ConciliacaoImportError,
     parseSefazCsv,
+    parseSefazZip,
+    attachXmlFromZip,
     parseSistemaXlsx,
     sefazRowsFromMatrix,
     sistemaRowsFromMatrix,

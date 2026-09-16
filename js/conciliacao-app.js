@@ -253,6 +253,75 @@
     }
   }
 
+  // Upload da SEFAZ: aceita CSV, .zip de XML, ou os dois juntos (arrasta/seleciona
+  // mais de um arquivo). O CSV continua sendo a fonte de verdade pra SITUACAO/TIPO/
+  // etc. quando presente — o .zip só entra pra anexar o XML de cada nota (pela
+  // chave), habilitando o botão de DANFE. Sem CSV, o .zip sozinho tenta reconstruir
+  // a linha inteira a partir do XML (ver `Parsers.parseSefazZip` — SITUACAO fica
+  // como "AUTORIZADA" pra notas canceladas quando o zip não traz o evento de
+  // cancelamento, uma limitação de dado, não de parsing).
+  function setupSefazUpload(cardId, dropId, inputId, statusId) {
+    const card = el(cardId)
+    const drop = el(dropId)
+    const input = el(inputId)
+    const status = el(statusId)
+
+    input.addEventListener('change', () => {
+      if (input.files && input.files.length) handle(Array.from(input.files))
+      input.value = ''
+    })
+
+    ;['dragover', 'dragenter'].forEach((evt) =>
+      drop.addEventListener(evt, (e) => {
+        e.preventDefault()
+        card.classList.add('is-dragover')
+      })
+    )
+    ;['dragleave', 'dragend'].forEach((evt) =>
+      drop.addEventListener(evt, () => card.classList.remove('is-dragover'))
+    )
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault()
+      card.classList.remove('is-dragover')
+      const files = e.dataTransfer.files && Array.from(e.dataTransfer.files)
+      if (files && files.length) handle(files)
+    })
+
+    async function handle(files) {
+      status.innerHTML = ''
+      card.classList.remove('is-loaded')
+      const csvFile = files.find((f) => /\.csv$/i.test(f.name))
+      const zipFile = files.find((f) => /\.zip$/i.test(f.name))
+      if (!csvFile && !zipFile) {
+        showToast('Selecione um arquivo .csv e/ou .zip da SEFAZ.', 'error')
+        return
+      }
+
+      try {
+        let result
+        if (csvFile) {
+          result = await Parsers.parseSefazCsv(csvFile)
+          if (zipFile) result = await Parsers.attachXmlFromZip(result, zipFile)
+        } else {
+          result = await Parsers.parseSefazZip(zipFile)
+        }
+
+        state.sefaz = result
+        renderHeader()
+        card.classList.add('is-loaded')
+        const nomes = [csvFile, zipFile].filter(Boolean).map((f) => f.name).join(' + ')
+        const comXml = csvFile && zipFile ? ' <span class="conc-origem-tag">com DANFE</span>' : ''
+        status.innerHTML = `<span class="dot"></span> ${escapeHtml(nomes)} — ${result.rows.length} notas${comXml}`
+        updateConciliarButton()
+      } catch (err) {
+        card.classList.remove('is-loaded')
+        const msg = err instanceof Parsers.ConciliacaoImportError ? err.message : Parsers.MSG_FORMATO_INVALIDO
+        showToast(msg, 'error')
+        status.innerHTML = ''
+      }
+    }
+  }
+
   function escapeHtml(s) {
     const div = document.createElement('div')
     div.textContent = s == null ? '' : String(s)
@@ -364,8 +433,13 @@
           const observacao = (override && override.observacao) || ''
           const unidade = Engine.unidadeNome(row.cnpjDestinatario)
           const status = Engine.conciliarNota(row, indices, justificativa)
+          // Prioridade pro XML da própria SEFAZ (quando o arquivo importado foi um
+          // .zip de XML — ver Parsers.parseSefazZip): nesse caso toda nota já tem o
+          // próprio XML, então o botão de DANFE aparece em todas as linhas. Só cai
+          // pro XML casado no sistema (via conector-erp) quando a SEFAZ veio do CSV
+          // (sem XML nenhum).
           const chaveDigits = Engine.chaveAcessoDigits(row.chave)
-          const xml = chaveDigits ? indices.xmlPorChave.get(chaveDigits) || '' : ''
+          const xml = row.xml || (chaveDigits ? indices.xmlPorChave.get(chaveDigits) || '' : '')
           results.push(Object.assign({}, row, { key, overrideId, unidade, justificativa, observacao, status, xml }))
         }
         updateProgress(Math.round(((i + chunk.length) / sefazRows.length) * 100))
@@ -1093,12 +1167,7 @@
 
     setupLinkDropdown('dropdownSistema', 'btnSistema')
 
-    setupUpload('cardSefaz', 'dropSefaz', 'inputSefaz', 'statusSefaz', async (file) => {
-      const result = await Parsers.parseSefazCsv(file)
-      state.sefaz = result
-      renderHeader()
-      return result
-    })
+    setupSefazUpload('cardSefaz', 'dropSefaz', 'inputSefaz', 'statusSefaz')
 
     setupUpload('cardSistema', 'dropSistema', 'inputSistema', 'statusSistema', async (file) => {
       const result = await Parsers.parseSistemaXlsx(file)

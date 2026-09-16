@@ -59,11 +59,57 @@ o orquestrador:
 | `js/conciliacao-danfe.js` | `ConciliacaoDanfe` | Monta a **DANFE** (produto, modelo 55) a partir do XML padrão da NF-e (`http://www.portalfiscal.inf.br/nfe`) como HTML autossuficiente — réplica do leiaute clássico (canhoto, cabeçalho com código de barras decorativo, destinatário, cálculo do imposto, transportador, tabela de produtos). Mesmo espírito de `servicos-danfse.js`, mas pro layout de nota de produto. |
 | `js/conciliacao-app.js` | — (IIFE) | Upload, execução da conciliação, dashboard, filtros, tabela, exportações, modal de novidades, modal da DANFE. Mantém o objeto `state`. |
 
-**Fluxo:** upload SEFAZ (CSV `windows-1252`, separador `;`, lido pelo SheetJS) + sistema
-(XLSX/XLS, ou via `conector-erp/` — ver seção própria) → `parsers` → `state.sefaz` /
-`state.sistema` → `Engine.buildIndices` + `Engine.conciliarNota` por nota →
-`state.reconciled` → render. Edições inline de Justificativa/Observação persistem no
-IndexedDB por `overrideId`.
+**Fluxo:** upload SEFAZ (CSV `windows-1252`, separador `;`, lido pelo SheetJS — **ou**
+um `.zip` de XML, ver abaixo) + sistema (XLSX/XLS, ou via `conector-erp/` — ver seção
+própria) → `parsers` → `state.sefaz` / `state.sistema` → `Engine.buildIndices` +
+`Engine.conciliarNota` por nota → `state.reconciled` → render. Edições inline de
+Justificativa/Observação persistem no IndexedDB por `overrideId`.
+
+**SEFAZ via `.zip` de XML — três jeitos de alimentar o card SEFAZ:** o card aceita CSV,
+`.zip` de XML, ou **os dois juntos** (`accept=".csv,.zip" multiple`,
+`setupSefazUpload` em `js/conciliacao-app.js` separa os arquivos selecionados pelo
+nome). **O combo CSV + zip é o recomendado** — dá o melhor dos dois: SITUACAO/TIPO/
+CFOP/VALOR/etc. sempre corretos (vêm do CSV, que é a fonte de verdade da SEFAZ) **e**
+XML em toda nota que tiver correspondência no zip (habilita a DANFE).
+
+- **Só CSV** (como sempre foi): `Parsers.parseSefazCsv`, sem mudança nenhuma.
+- **CSV + zip**: `Parsers.attachXmlFromZip(sefazResult, zipFile)` — roda depois do CSV.
+  Casa cada linha pela chave de acesso (`Id="NFe<44 dígitos>"` no XML) e só acrescenta
+  `row.xml`; SITUACAO/TIPO/CFOP/VALOR continuam 100% do CSV, sem tocar neles.
+  Reconstrói o `rawMatrix` com uma coluna `XML` a mais (ou atualiza se já existir),
+  então o bundle `.json` de Exportar/Importar carrega tudo sem mudança de código.
+- **Só zip** (`Parsers.parseSefazZip`) — **best-effort, com uma limitação de dado
+  conhecida**: monta a linha inteira a partir do XML (`sefazRowRawFromXml`).
+  - `TIPO` vem do campo oficial `ide/tpNF` (`0`→`ENTRADA`, `1`→`SAÍDA`) — é uma
+    propriedade da nota/CFOP, não de quem somos nós. **Não** deduzir isso pelo CNPJ
+    emitente (jeito antigo, errado — dava pra achar que uma compra em que somos
+    destinatário seria sempre "Entrada", mas o `tpNF` real muitas vezes marca
+    "Saída" mesmo assim; confirmado 1:1 contra o CSV real de
+    `arquivos_exemplo/`: 232/232 notas bateram depois da correção).
+  - `SITUACAO=CANCELADA` só é detectável quando o zip **também** tem o evento de
+    cancelamento (`tpEvento=110111`, `cStat` 135/155 — `procEventoNFe`/similar,
+    incluído no "Download de XMLs" só se a opção de baixar eventos for marcada no
+    portal) ou uma pasta `Canceladas/`. **O "Download de XMLs" básico normalmente
+    não inclui o evento** — nesse caso não existe NENHUM sinal de cancelamento no
+    conteúdo do próprio XML da nota (`cStat` do `protNFe` continua `100`/Autorizado
+    pra sempre, cancelamento é sempre um evento à parte) — `SITUACAO` fica vazia
+    (equivalente a autorizada) mesmo pra notas já canceladas. **Por isso o combo
+    CSV + zip é o caminho recomendado** sempre que SITUACAO importa — zip sozinho é
+    só pra quando não se tem o CSV à mão e dá pra vivér sem saber quais notas foram
+    canceladas depois da emissão.
+
+Nos três casos, `FORNECEDOR` = nome do emitente (mesma semântica do CSV — a 1ª coluna
+"RAZAO SOCIAL", sempre do emitente, entrada ou saída); `REJEITADA` sempre `N` no
+caminho zip (só existe XML pra nota autorizada, rejeitada não gera XML válido). As
+linhas do zip viram um `rawMatrix` sintético (cabeçalho igual ao do CSV + coluna
+`XML`) que passa pelo **mesmo** `sefazRowsFromMatrix` do CSV — um único parser por
+trás dos três caminhos. Um CSV puro nunca tem a coluna `XML`, então `row.xml` fica
+vazio nesse caminho — sem tratamento especial.
+
+Logo abaixo da grade de upload, `.conc-info-banner` (`conciliacao.html`) é um aviso
+fixo (sempre visível, não é toast) explicando essa troca pro usuário em pt-BR direto:
+dá pra ver a DANFE só com o `.zip`, mas conferir a Situação (Cancelada/Autorizada)
+exige soltar o `.zip` **junto** com o CSV.
 
 **Casagem SEFAZ × sistema (`Engine.encontraRecebida`):** tenta primeiro por **chave de
 acesso** (44 dígitos, `Engine.chaveAcessoDigits`) — quando os dois lados têm chave, é
@@ -73,21 +119,26 @@ NFe"/"Chave") — quando não tem (comum em exports antigos, ou linhas sem chave
 entradas de serviço), cai no fallback de sempre: NF + valor com tolerância R$0,02.
 `buildIndices` monta `comprasPorChave` (Set) além do já existente `comprasPorNF`.
 
-**Botão de DANFE (1ª coluna da tabela, antes de "Chave"):** só existe quando o
-sistema veio do **conector-erp** (busca direto no banco) — o export manual do XLSX
-nunca traz o XML da nota. O SQL de `conector-erp/query.js` já buscava
-`Conteudo_Arquivo_Xml`; agora ele também sai no `rawMatrix` (coluna extra `XML NFe`,
-depois de "Empresa") e `SISTEMA_OPTIONAL_FIELDS` (`js/conciliacao-parsers.js`) lê essa
-coluna pro campo `row.xml` — como o parser é o mesmo pra upload manual e pra busca do
-conector-erp, um XLSX manual simplesmente não tem essa coluna e `row.xml` fica vazio
-em todas as linhas, então o botão nunca aparece nesse caminho (sem tratamento
-especial). `buildIndices` monta `xmlPorChave` (Map chave→xml) junto com
-`comprasPorChave`; em `runConciliacao`, cada linha reconciliada ganha
-`xml: indices.xmlPorChave.get(chaveDaSefaz) || ''`. `danfeCell`/`openDanfe`
-(`js/conciliacao-app.js`) e o modal `#danfeModalOverlay` seguem o mesmo padrão do
-modal da DANFSe em `conciliacao-servicos.html` (iframe `srcdoc` + Imprimir + Abrir em
-nova aba), só que renderizando via `ConciliacaoDanfe.buildHtml` (leiaute de NF-e, não
-de NFS-e).
+**Botão de DANFE (1ª coluna da tabela, antes de "Chave"):** existe pra uma nota quando
+o XML dela veio de **qualquer um dos dois lados**:
+1. **SEFAZ**, quando o `.zip` de XML entrou (sozinho ou junto com o CSV — ver acima)
+   — nesse caso **todas** as notas que tiverem XML correspondente no zip ficam com o
+   botão, mesmo sem nenhum arquivo do sistema importado.
+2. **Sistema**, via `conector-erp` (busca direto no banco) — o export manual do XLSX
+   nunca traz XML. O SQL de `conector-erp/query.js` já buscava
+   `Conteudo_Arquivo_Xml`; ele sai no `rawMatrix` (coluna extra `XML NFe`, depois de
+   "Empresa") e `SISTEMA_OPTIONAL_FIELDS` (`js/conciliacao-parsers.js`) lê essa coluna
+   pro campo `row.xml` — um XLSX manual não tem essa coluna, `row.xml` fica vazio
+   (sem tratamento especial). `buildIndices` monta `xmlPorChave` (Map chave→xml) além
+   de `comprasPorChave`, casando pela chave de acesso da SEFAZ.
+
+Em `runConciliacao`, cada linha reconciliada ganha
+`xml: row.xml || (indices.xmlPorChave.get(chaveDaSefaz) || '')` — **o XML da própria
+SEFAZ tem prioridade** sobre o do sistema (faz sentido: se a nota já veio com XML
+próprio, não precisa do match). `danfeCell`/`openDanfe` (`js/conciliacao-app.js`) e o
+modal `#danfeModalOverlay` seguem o mesmo padrão do modal da DANFSe em
+`conciliacao-servicos.html` (iframe `srcdoc` + Imprimir + Abrir em nova aba), só que
+renderizando via `ConciliacaoDanfe.buildHtml` (leiaute de NF-e, não de NFS-e).
 
 **Sistema Atak (CD):** o nº da NF e a série saem da coluna "Documento"
 (`filial-tipo-serie-numero`, ex.: `111-NEE-000-139439` → série `000`, NF `139439`); o
